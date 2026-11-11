@@ -2,6 +2,7 @@
 // Chapter 8, Desk mode: three years of implied vol (OVX) and realized vol on
 // one axis, with the gap between the two lines lightly shaded.
 
+import { useReducedMotion } from "framer-motion";
 import {
   Area,
   CartesianGrid,
@@ -33,6 +34,7 @@ type Props = {
 type HoverProps = { active?: boolean; payload?: readonly { payload?: VolRow }[] };
 
 export default function VolSpreadChart({ rows, labels }: Props) {
+  const reduceMotion = useReducedMotion();
   // One tick at the start of each calendar year inside the window.
   const firstYear = new Date(rows[0].t).getUTCFullYear() + 1;
   const lastYear = new Date(rows[rows.length - 1].t).getUTCFullYear();
@@ -98,6 +100,7 @@ export default function VolSpreadChart({ rows, labels }: Props) {
               strokeDasharray="5 3"
               dot={false}
               activeDot={{ r: 3, stroke: "var(--paper)", strokeWidth: 2 }}
+              isAnimationActive={!reduceMotion}
               animationDuration={600}
             />
             <Line
@@ -107,6 +110,7 @@ export default function VolSpreadChart({ rows, labels }: Props) {
               strokeWidth={1.5}
               dot={false}
               activeDot={{ r: 3, stroke: "var(--paper)", strokeWidth: 2 }}
+              isAnimationActive={!reduceMotion}
               animationDuration={600}
             />
           </ComposedChart>

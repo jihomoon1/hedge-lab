@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { Fraunces, Inter, JetBrains_Mono } from "next/font/google";
-import { MODE_STORAGE_KEY } from "@/lib/copy";
+import { copy, MODE_STORAGE_KEY } from "@/lib/copy";
 import "./globals.css";
 
 // The three typefaces from SPEC "Design": serif headings, sans numbers in
@@ -12,10 +12,24 @@ const jetbrainsMono = JetBrains_Mono({
   subsets: ["latin"],
 });
 
+// The site's public address: Vercel sets this for the live site; on your
+// laptop it falls back to the local address. Link previews need full URLs.
+const siteUrl = process.env.VERCEL_PROJECT_PRODUCTION_URL
+  ? `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL}`
+  : "http://localhost:3000";
+
 export const metadata: Metadata = {
-  title: "Hedge Lab",
-  description:
-    "Learn commodity derivatives by following one oil producer through her hedging decisions, priced off real market data.",
+  metadataBase: new URL(siteUrl),
+  title: copy.meta.title,
+  description: copy.meta.description,
+  openGraph: {
+    type: "website",
+    siteName: copy.meta.name,
+    title: copy.meta.title,
+    description: copy.meta.description,
+    url: "/",
+  },
+  twitter: { card: "summary_large_image" },
 };
 
 // Runs before the page is painted: if this browser last chose Desk Speak,

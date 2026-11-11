@@ -8,6 +8,7 @@ import { useEffect } from "react";
 import { Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { copy, fill, type Mode } from "@/lib/copy";
 import { longDate, shortDate, signedPct, usd } from "@/lib/format";
+import RichText from "../RichText";
 import type { HeroData } from "@/lib/market";
 import { useMode } from "../ModeToggle";
 
@@ -55,6 +56,7 @@ function SparkTooltip({ active, payload }: TooltipProps) {
 }
 
 function Sparkline({ data, mode }: { data: HeroData; mode: Mode }) {
+  const reduceMotion = useReducedMotion();
   const start = data.year[0].date;
   const end = data.year[data.year.length - 1].date;
   return (
@@ -88,6 +90,7 @@ function Sparkline({ data, mode }: { data: HeroData; mode: Mode }) {
               strokeWidth={mode === "plain" ? 2.5 : 1.5}
               dot={false}
               activeDot={{ r: 4, stroke: "var(--paper)", strokeWidth: 2 }}
+              isAnimationActive={!reduceMotion}
               animationDuration={1400}
             />
           </LineChart>
@@ -143,7 +146,9 @@ export default function Hero({ data }: { data: HeroData | null }) {
   const text = copy.hero[mode];
   return (
     <section className="mx-auto flex min-h-svh max-w-5xl flex-col justify-center px-4 py-16 sm:px-8">
-      <p className="text-sm font-medium tracking-wide text-muted uppercase">{text.eyebrow}</p>
+      <p className="text-sm font-medium tracking-wide text-muted uppercase">
+        <RichText text={text.eyebrow} />
+      </p>
 
       <p className="mt-3 flex flex-wrap items-baseline gap-x-4">
         <span

@@ -2,6 +2,7 @@
 // The futures curve: today's 12 contract prices as a solid line with dots,
 // and the curve from a week earlier as a faded, dashed "ghost" line.
 
+import { useReducedMotion } from "framer-motion";
 import {
   CartesianGrid,
   Line,
@@ -29,6 +30,7 @@ type HoverProps = { active?: boolean; payload?: readonly { payload?: Point }[] }
 export const GHOST_DASH = "5 4";
 
 export default function CurveChart({ points, mode, labels }: Props) {
+  const reduceMotion = useReducedMotion();
   const desk = mode === "desk";
 
   const all = points.flatMap((p) => (p.weekAgo === null ? [p.price] : [p.price, p.weekAgo]));
@@ -89,6 +91,7 @@ export default function CurveChart({ points, mode, labels }: Props) {
           strokeDasharray={GHOST_DASH}
           dot={false}
           activeDot={false}
+          isAnimationActive={!reduceMotion}
           animationDuration={900}
         />
         <Line
@@ -97,6 +100,7 @@ export default function CurveChart({ points, mode, labels }: Props) {
           strokeWidth={desk ? 1.5 : 3}
           dot={{ r: desk ? 3 : 4, fill: "var(--crude)", stroke: "var(--paper)", strokeWidth: 2 }}
           activeDot={{ r: 6, stroke: "var(--paper)", strokeWidth: 2 }}
+          isAnimationActive={!reduceMotion}
           animationDuration={1200}
         />
       </LineChart>

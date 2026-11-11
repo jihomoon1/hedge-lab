@@ -176,7 +176,7 @@ export const copy = {
       question: "If you had to sell your oil at this price, could you sleep tonight?",
     },
     desk: {
-      eyebrow: "WTI front month · CL=F",
+      eyebrow: "WTI [[frontMonth|front month]] · CL=F",
       unit: "$/bbl",
       asOf: "Settle {date} · end-of-day, not tick data",
       chartTitle: "1Y range {low} – {high}",
@@ -459,7 +459,7 @@ export const copy = {
       notional: "Hedged volume",
       notionalValue: "{barrels} bbl/month",
       struck: "Swap struck last week at {stripWeekAgo}",
-      mtmValue: "MtM {mtm}",
+      mtmLabel: "MtM",
       mtmMath: "({stripWeekAgo} − {strip}) × {barrels} bbl × 12, undiscounted",
     },
   },
@@ -890,5 +890,62 @@ export const copy = {
       asianNote:
         "Monthly-average settlement makes these options closer to Asian options; Black-76 here is an approximation.",
     },
+  },
+
+  // Browser tab, search results and link previews ---------------------------
+  meta: {
+    name: "Hedge Lab",
+    title: "Hedge Lab: how oil producers hedge, explained live",
+    description:
+      "Follow one oil producer through swaps, puts, collars and three-ways, priced off daily market data, in plain English or desk speak.",
+    tagline: "How oil producers hedge, explained live",
+    priceLabel: "U.S. crude oil (WTI), latest close",
+    priceUnit: "per barrel",
+    asOf: "As of {date}",
+    imageAlt: "Hedge Lab: how oil producers hedge, explained live, with the latest WTI price",
+  },
+
+  // Footer -----------------------------------------------------------------
+  footer: {
+    glossaryTitle: "Glossary",
+    glossaryIntro: "Every underlined term on this site, in both vocabularies.",
+    plainHeading: "Plain English",
+    deskHeading: "Desk Speak",
+    sourcesTitle: "Data and sources",
+    asOf: "Futures prices as of {date}. All data is end-of-day and refreshes once each weekday evening. It is not live.",
+    noData: "Market data has not loaded yet.",
+    latest: "latest {date}",
+    sources: [
+      {
+        name: "Yahoo Finance",
+        detail: "WTI futures prices for the front month (CL=F) and the next 12 contract months",
+        url: "https://finance.yahoo.com/quote/CL%3DF/",
+        date: "futures",
+      },
+      {
+        name: "FRED DCOILWTICO",
+        detail: "WTI spot price at Cushing, daily (price history and stress-test paths)",
+        url: "https://fred.stlouisfed.org/series/DCOILWTICO",
+        date: "spot",
+      },
+      {
+        name: "FRED OVXCLS",
+        detail: "Cboe crude oil volatility index, OVX (option pricing and the vol gauge)",
+        url: "https://fred.stlouisfed.org/series/OVXCLS",
+        date: "ovx",
+      },
+      {
+        name: "FRED DTB3",
+        detail: "3-month Treasury bill rate (the interest rate in option pricing)",
+        url: "https://fred.stlouisfed.org/series/DTB3",
+        date: "tbill",
+      },
+    ],
+    builtBy: "Built by Jiho Moon",
+    linkedin: "LinkedIn",
+    linkedinUrl: "https://www.linkedin.com/in/jihomoonn",
+    github: "GitHub",
+    githubUrl: "https://github.com/jihomoon1/hedge-lab",
+    disclaimer: "Educational project, not investment advice.",
   },
 } as const;

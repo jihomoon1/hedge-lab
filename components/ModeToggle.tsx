@@ -24,8 +24,22 @@ export function useMode(): Mode {
   return useSyncExternalStore(subscribe, readMode, () => "plain");
 }
 
+/** The chapter currently at the top of the screen, and how far down it starts. */
+function chapterInView(): { section: Element; top: number } | null {
+  for (const section of document.querySelectorAll("main > section")) {
+    const { top, bottom } = section.getBoundingClientRect();
+    if (bottom > 1) return { section, top };
+  }
+  return null;
+}
+
 function setMode(mode: Mode) {
   const root = document.documentElement;
+  // The two vocabularies have different amounts of text, so everything
+  // below a chapter moves when the mode flips. Remember where the chapter
+  // on screen sits, and put it back there afterwards, so the reader keeps
+  // their place.
+  const anchor = chapterInView();
   // "mode-fade" turns on a 300ms color transition just for the switch, so
   // the two themes cross-fade instead of snapping.
   root.classList.add("mode-fade");
@@ -37,6 +51,12 @@ function setMode(mode: Mode) {
     // Private browsing can block storage; the switch still works for this visit.
   }
   listeners.forEach((listener) => listener());
+  if (anchor) {
+    requestAnimationFrame(() => {
+      const moved = anchor.section.getBoundingClientRect().top - anchor.top;
+      if (Math.abs(moved) > 1) window.scrollBy({ top: moved, behavior: "instant" });
+    });
+  }
 }
 
 export default function ModeToggle() {

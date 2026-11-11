@@ -52,6 +52,10 @@ export const strikeText = (n: number) => (Number.isInteger(n) ? String(n) : n.to
 /** A price difference with its sign always shown: +$1.20 or −$12.19. */
 export const signedPrice = (n: number) => `${n < 0 ? MINUS : "+"}${money(n, 2)}`;
 
+/** A plain decimal with a true minus sign: −0.3207. */
+export const decimal = (n: number, digits: number) =>
+  `${n < 0 ? MINUS : ""}${Math.abs(n).toFixed(digits)}`;
+
 /** A fraction as a percent: 0.551 → 55.1%. */
 export const pct = (n: number, digits = 1) =>
   `${n < 0 ? MINUS : ""}${(Math.abs(n) * 100).toFixed(digits)}%`;

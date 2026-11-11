@@ -6,7 +6,7 @@ import { animate, useReducedMotion } from "framer-motion";
 import { useEffect, useRef, useState } from "react";
 import { copy, fill } from "@/lib/copy";
 import { DANA } from "@/lib/dana";
-import { price, priceShort } from "@/lib/format";
+import { decimal, price, priceShort } from "@/lib/format";
 import { black76Call, black76Greeks, collarRevenue, zeroCostCallStrike } from "@/lib/pricing";
 import Chapter from "../Chapter";
 import ChartFrame from "../charts/ChartFrame";
@@ -157,7 +157,7 @@ export default function Collar() {
                 ? price(0)
                 : fill(net > 0 ? stats.debit : stats.credit, { net: values.net }),
             },
-            { label: stats.netDelta, value: netDelta.toFixed(4) },
+            { label: stats.netDelta, value: decimal(netDelta, 4) },
           ]}
         />
       )}

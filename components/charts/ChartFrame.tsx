@@ -2,7 +2,7 @@
 // The frame around every chart: a sentence title that states the point, the
 // chart itself (drawn only once it scrolls into view) and an "as of" line.
 
-import { motion, useInView } from "framer-motion";
+import { motion, useInView, useReducedMotion } from "framer-motion";
 import { useRef, type ReactNode } from "react";
 import { useMode } from "../ModeToggle";
 
@@ -24,6 +24,7 @@ export default function ChartFrame({ title, footnote, height, legend, children }
   // Waiting until the chart is on screen means its draw-in animation plays
   // when the reader arrives, not while it is still off screen.
   const inView = useInView(ref, { once: true, margin: "0px 0px -15% 0px" });
+  const reduceMotion = useReducedMotion();
 
   return (
     <figure>
@@ -39,7 +40,7 @@ export default function ChartFrame({ title, footnote, height, legend, children }
         {inView && (
           <motion.div
             className="h-full"
-            initial={{ opacity: 0 }}
+            initial={{ opacity: reduceMotion ? 1 : 0 }}
             animate={{ opacity: 1 }}
             transition={{ duration: 0.4 }}
           >

@@ -5,7 +5,7 @@
 import { useState } from "react";
 import { copy, fill } from "@/lib/copy";
 import { DANA } from "@/lib/dana";
-import { dollars, price, priceShort, signedPct, signedPrice } from "@/lib/format";
+import { decimal, dollars, price, priceShort, signedPct, signedPrice } from "@/lib/format";
 import { black76Greeks, black76Put, putRevenue } from "@/lib/pricing";
 import Chapter from "../Chapter";
 import ChartFrame from "../charts/ChartFrame";
@@ -16,6 +16,7 @@ import { useMode } from "../ModeToggle";
 import Readout from "../Readout";
 import Slider from "../Slider";
 import StatList from "../StatList";
+import Term from "../Term";
 import { optionValues } from "./optionText";
 
 /** The "vol +5 pts" button adds this much to sigma. */
@@ -46,7 +47,7 @@ export default function Put() {
     // The premium before any vol bump, for text that quotes the base inputs.
     basePremium: price(basePremium),
     floor: price(floor),
-    delta: greeks.delta.toFixed(2),
+    delta: decimal(greeks.delta, 2),
   };
 
   // Rebuilt on every draw: about 25 rows of arithmetic, far cheaper than a frame.
@@ -113,10 +114,10 @@ export default function Put() {
         <>
           <StatList
             stats={[
-              { label: stats.delta, value: greeks.delta.toFixed(4) },
-              { label: stats.gamma, value: greeks.gamma.toFixed(4) },
-              { label: stats.vega, value: price(greeks.vega) },
-              { label: stats.theta, value: signedPrice(greeks.theta) },
+              { label: <Term k="delta">{stats.delta}</Term>, value: decimal(greeks.delta, 4) },
+              { label: <Term k="gamma">{stats.gamma}</Term>, value: decimal(greeks.gamma, 4) },
+              { label: <Term k="vega">{stats.vega}</Term>, value: price(greeks.vega) },
+              { label: <Term k="theta">{stats.theta}</Term>, value: signedPrice(greeks.theta) },
             ]}
           />
           <div className="space-y-2">

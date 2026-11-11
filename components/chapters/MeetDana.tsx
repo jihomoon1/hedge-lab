@@ -2,7 +2,7 @@
 // Chapter 1. An oil price slider drives Dana's monthly revenue and profit;
 // the profit bar turns red (and is labeled "Loss") below her breakeven cost.
 
-import { motion } from "framer-motion";
+import { motion, useReducedMotion } from "framer-motion";
 import { useId, useState } from "react";
 import { copy, fill } from "@/lib/copy";
 import { DANA } from "@/lib/dana";
@@ -18,6 +18,7 @@ type BarProps = { label: string; value: string; share: number; color: string; ha
 
 /** One horizontal bar: label on the left, dollar value on the right. */
 function Bar({ label, value, share, color, hatch }: BarProps) {
+  const reduceMotion = useReducedMotion();
   return (
     <div>
       <div className="flex items-baseline justify-between gap-4">
@@ -36,7 +37,7 @@ function Bar({ label, value, share, color, hatch }: BarProps) {
           }}
           initial={false}
           animate={{ width: `${Math.max(0, Math.min(1, share)) * 100}%` }}
-          transition={{ duration: 0.2, ease: "easeOut" }}
+          transition={{ duration: reduceMotion ? 0 : 0.2, ease: "easeOut" }}
         />
       </div>
     </div>

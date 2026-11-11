@@ -3,6 +3,7 @@
 // oil ends up (along the bottom). Each line gets its own dash style, and the
 // chart can mark strikes, shade a zone and follow a moving price.
 
+import { useReducedMotion } from "framer-motion";
 import { useState } from "react";
 import {
   CartesianGrid,
@@ -99,6 +100,8 @@ export default function PayoffChart({
   // Lines draw in once when the chart first appears; after that they follow
   // the sliders instantly, with no animation to lag behind the thumb.
   const [drawn, setDrawn] = useState(false);
+  // Readers who ask their device for less motion get the finished chart at once.
+  const reduceMotion = useReducedMotion();
 
   const xMin = rows[0].s;
   const xMax = rows[rows.length - 1].s;
@@ -207,7 +210,7 @@ export default function PayoffChart({
                 strokeOpacity={line.opacity ?? 1}
                 dot={false}
                 activeDot={{ r: 4, stroke: "var(--paper)", strokeWidth: 2 }}
-                isAnimationActive={!drawn}
+                isAnimationActive={!drawn && !reduceMotion}
                 animationDuration={500}
                 onAnimationEnd={i === 0 ? () => setDrawn(true) : undefined}
               />

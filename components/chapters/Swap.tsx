@@ -15,6 +15,7 @@ import PayoffChart, { type PayoffLine, type PayoffRow } from "../charts/PayoffCh
 import { useMode } from "../ModeToggle";
 import Slider from "../Slider";
 import StatList from "../StatList";
+import Term from "../Term";
 
 type Props = {
   curve: CurveData;
@@ -146,8 +147,14 @@ export default function Swap({ curve, today }: Props) {
               ? []
               : [
                   {
-                    label: fill(copy.swap.desk_stats.struck, values),
-                    value: fill(copy.swap.desk_stats.mtmValue, { mtm: dollars(mtm) }),
+                    label: (
+                      <>
+                        {fill(copy.swap.desk_stats.struck, values)}
+                        {": "}
+                        <Term k="markToMarket">{copy.swap.desk_stats.mtmLabel}</Term>
+                      </>
+                    ),
+                    value: dollars(mtm),
                     note: fill(copy.swap.desk_stats.mtmMath, values),
                     tone: mtm < 0 ? ("loss" as const) : mtm > 0 ? ("gain" as const) : undefined,
                   },
