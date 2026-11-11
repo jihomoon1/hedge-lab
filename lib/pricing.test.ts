@@ -18,6 +18,17 @@ import {
   threeWayNetPremium,
   threeWayRevenue,
   zeroCostCallStrike,
+  zeroCostStripCallStrike,
+  legGreeks,
+  legPayoff,
+  legPremium,
+  legStripPremium,
+  percentileRank,
+  structureGreeks,
+  structurePayoff,
+  structurePremium,
+  type Leg,
+  type StripInputs,
 } from "./pricing";
 
 // The reference inputs from SPEC.md "Unit test values".
@@ -291,5 +302,106 @@ describe("put and collar payoffs", () => {
     expect(threeWayRevenue(55, strikes, 1)).toBe(collarRevenue(55, 60, 75, 1));
     // At $20 the collar still pays the floor; the three-way has fallen $30 with the market.
     expect(collarRevenue(20, 60, 75, 1) - threeWayRevenue(20, strikes, 1)).toBe(30);
+  });
+});
+
+describe("percentileRank", () => {
+  it("gives the share of values at or below x, from 0 to 100", () => {
+    const values = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
+    expect(percentileRank(values, 3)).toBe(30);
+    expect(percentileRank(values, 10)).toBe(100);
+    expect(percentileRank(values, 0)).toBe(0);
+    expect(percentileRank(values, 5.5)).toBe(50);
+  });
+});
+
+describe("hedge desk legs", () => {
+  const longPut: Leg = { type: "longPut", strike: 60, volume: 10_000 };
+  const shortPut: Leg = { type: "shortPut", strike: 50, volume: 10_000 };
+  const shortCall: Leg = { type: "shortCall", strike: 75, volume: 10_000 };
+  const swap: Leg = { type: "swap", strike: 62, volume: 5_000 };
+  // A two-month strip: month 1 at $60 (T = 1/12), month 2 at $58 (T = 2/12).
+  const strip: StripInputs = { forwards: [60, 58], sigma, r };
+
+  it("pays each leg type the right amount per barrel", () => {
+    expect(legPayoff(longPut, 45)).toBe(15);
+    expect(legPayoff(longPut, 70)).toBe(0);
+    expect(legPayoff(shortPut, 45)).toBe(-5);
+    expect(legPayoff(shortCall, 90)).toBe(-15);
+    expect(legPayoff(shortCall, 70)).toBe(0);
+    expect(legPayoff(swap, 45)).toBe(17);
+    expect(legPayoff(swap, 90)).toBe(-28);
+  });
+
+  it("charges for bought options and pays for sold ones", () => {
+    expect(legPremium(longPut, F, sigma, T, r)).toBeCloseTo(6.6142, 4);
+    expect(legPremium({ ...shortPut, strike: 60 }, F, sigma, T, r)).toBeCloseTo(-6.6142, 4);
+    expect(legPremium({ ...shortCall, strike: 60 }, F, sigma, T, r)).toBeCloseTo(-6.6142, 4);
+    expect(legPremium(swap, F, sigma, T, r)).toBe(0);
+  });
+
+  it("flips the Greeks for short legs and gives a swap delta −1", () => {
+    expect(legGreeks(longPut, F, sigma, T, r).delta).toBeCloseTo(-0.435, 4);
+    expect(legGreeks(longPut, F, sigma, T, r).vega).toBeCloseTo(0.1643, 4);
+    expect(legGreeks({ ...shortPut, strike: 60 }, F, sigma, T, r).delta).toBeCloseTo(0.435, 4);
+    expect(legGreeks({ ...shortPut, strike: 60 }, F, sigma, T, r).vega).toBeCloseTo(-0.1643, 4);
+    expect(legGreeks(swap, F, sigma, T, r)).toEqual({ delta: -1, gamma: 0, vega: 0, theta: 0 });
+  });
+
+  it("adds a leg's premium over every month of the strip, times volume", () => {
+    const expected =
+      (black76Put(60, 60, sigma, 1 / 12, r) + black76Put(58, 60, sigma, 2 / 12, r)) * 10_000;
+    expect(legStripPremium(longPut, strip)).toBeCloseTo(expected, 6);
+    expect(structurePremium([longPut, swap], strip)).toBeCloseTo(expected, 6);
+  });
+
+  it("adds the payoffs of all legs for one month, times volume", () => {
+    // At $45: long 60 put +15, short 50 put −5, short 75 call 0, each × 10,000;
+    // swap (62 − 45) × 5,000 = 85,000. Total 100,000 + 85,000.
+    expect(structurePayoff([longPut, shortPut, shortCall, swap], 45)).toBe(185_000);
+  });
+
+  it("totals the Greeks across all legs and months, scaled by volume", () => {
+    const legs = [longPut, shortCall, swap];
+    const total = structureGreeks(legs, strip);
+
+    // The same sum, written out leg by leg and month by month.
+    const months = [
+      { F: 60, T: 1 / 12 },
+      { F: 58, T: 2 / 12 },
+    ];
+    let delta = 0;
+    let gamma = 0;
+    let vega = 0;
+    let theta = 0;
+    for (const { F: f, T: t } of months) {
+      const put = black76Greeks("put", f, 60, sigma, t, r);
+      const call = black76Greeks("call", f, 75, sigma, t, r);
+      delta += put.delta * 10_000 - call.delta * 10_000 - 1 * 5_000;
+      gamma += put.gamma * 10_000 - call.gamma * 10_000;
+      vega += put.vega * 10_000 - call.vega * 10_000;
+      theta += put.theta * 10_000 - call.theta * 10_000;
+    }
+    expect(total.delta).toBeCloseTo(delta, 6);
+    expect(total.gamma).toBeCloseTo(gamma, 6);
+    expect(total.vega).toBeCloseTo(vega, 6);
+    expect(total.theta).toBeCloseTo(theta, 6);
+
+    // A swap alone is delta −1 per barrel per month: 5,000 × 2 months.
+    expect(structureGreeks([swap], strip)).toEqual({ delta: -10_000, gamma: 0, vega: 0, theta: 0 });
+    // No legs, no Greeks.
+    expect(structureGreeks([], strip)).toEqual({ delta: 0, gamma: 0, vega: 0, theta: 0 });
+  });
+
+  it("solves a strip collar whose net premium is zero", () => {
+    const callStrike = zeroCostStripCallStrike(strip, 54);
+    expect(callStrike).not.toBeNull();
+    const collar: Leg[] = [
+      { type: "longPut", strike: 54, volume: 10_000 },
+      { type: "shortCall", strike: callStrike as number, volume: 10_000 },
+    ];
+    expect(Math.abs(structurePremium(collar, strip))).toBeLessThan(0.01);
+    // A put far above the market costs more than any call between F and 3F.
+    expect(zeroCostStripCallStrike(strip, 90)).toBeNull();
   });
 });

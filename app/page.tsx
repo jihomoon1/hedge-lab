@@ -11,7 +11,17 @@ import Swap from "@/components/chapters/Swap";
 import ThreeWay from "@/components/chapters/ThreeWay";
 import { HedgeProvider } from "@/components/HedgeState";
 import ModeToggle from "@/components/ModeToggle";
-import { curveData, heroData, historyData, loadMarket, optionData } from "@/lib/market";
+import Sandbox from "@/components/chapters/Sandbox";
+import VolGauge from "@/components/chapters/VolGauge";
+import {
+  curveData,
+  heroData,
+  historyData,
+  loadMarket,
+  optionData,
+  sandboxData,
+  volData,
+} from "@/lib/market";
 
 export default async function Home() {
   const market = await loadMarket();
@@ -19,6 +29,8 @@ export default async function Home() {
   const history = market ? historyData(market) : null;
   const curve = market ? curveData(market) : null;
   const options = market ? optionData(market) : null;
+  const vol = market ? volData(market) : null;
+  const sandbox = market ? sandboxData(market) : null;
 
   return (
     <main className="bg-paper text-ink">
@@ -36,6 +48,8 @@ export default async function Home() {
           <ThreeWay />
         </HedgeProvider>
       )}
+      {vol && <VolGauge data={vol} />}
+      {sandbox && <Sandbox data={sandbox} />}
     </main>
   );
 }

@@ -19,8 +19,8 @@ type Props = {
   body: readonly string[];
   /** Anything extra under the paragraphs, like a list. */
   extra?: ReactNode;
-  /** The chapter's closing line, shown in bold. */
-  aha: string;
+  /** The chapter's closing line, shown in bold. Left out when a chapter continues in the next section. */
+  aha?: string;
 };
 
 export default function Chapter({ id, kicker, title, chart, controls, body, extra, aha }: Props) {
@@ -59,9 +59,13 @@ export default function Chapter({ id, kicker, title, chart, controls, body, extr
           {extra}
         </div>
 
-        <p className="mt-8 pb-16 font-serif text-xl leading-snug font-semibold text-balance sm:text-2xl lg:col-start-1 lg:pb-[30vh]">
-          {aha}
-        </p>
+        {aha ? (
+          <p className="mt-8 pb-16 font-serif text-xl leading-snug font-semibold text-balance sm:text-2xl lg:col-start-1 lg:pb-[30vh]">
+            {aha}
+          </p>
+        ) : (
+          <div className="pb-16 lg:col-start-1 lg:pb-[20vh]" />
+        )}
       </div>
     </section>
   );

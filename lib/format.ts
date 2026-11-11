@@ -19,6 +19,26 @@ export const usd = (n: number) => (n < 0 ? `(${money(n, 2)})` : money(n, 2));
 /** Whole-dollar totals; losses in parentheses: $310,000 or ($150,000). */
 export const dollars = (n: number) => (n < 0 ? `(${money(n, 0)})` : money(n, 0));
 
+/** Big totals in short form for chart axes: $1.25M, $800k or ($200k). */
+export const compactDollars = (n: number) => {
+  const abs = Math.abs(n);
+  if (abs < 500) return "$0";
+  const text =
+    abs >= 1e6 ? `$${Number((abs / 1e6).toFixed(2))}M` : `$${Number((abs / 1e3).toFixed(0))}k`;
+  return n < 0 ? `(${text})` : text;
+};
+
+/** Barrels in Desk shorthand: 10,000 → 10k, 2,500 → 2.5k, 750 → 750. */
+export const compactVolume = (n: number) =>
+  n >= 1000 ? `${Number((n / 1000).toFixed(2))}k` : String(n);
+
+/** 1 → 1st, 2 → 2nd, 26 → 26th. */
+export const ordinal = (n: number) => {
+  const tens = n % 100;
+  const suffix = tens >= 11 && tens <= 13 ? "th" : (["th", "st", "nd", "rd"][n % 10] ?? "th");
+  return `${n}${suffix}`;
+};
+
 /** A market price, which can genuinely be negative: $86.04 or −$36.98. */
 export const price = (n: number) => (n < 0 ? `${MINUS}${money(n, 2)}` : money(n, 2));
 

@@ -5,7 +5,8 @@ import { promises as fs } from "node:fs";
 import path from "node:path";
 import { get, put } from "@vercel/blob";
 import { cacheLife, cacheTag } from "next/cache";
-import { curveSpread, realizedVol, rollYield, stripPrice } from "./pricing";
+import { curveSpread, percentileRank, realizedVol, rollYield, stripPrice } from "./pricing";
+import { scenarioPaths, type ScenarioPath } from "./scenarios";
 
 /** One daily close of the front-month WTI future (Yahoo `CL=F`). */
 export type FrontPoint = {
@@ -372,5 +373,99 @@ export function optionData(market: MarketData): OptionData | null {
     months: curve.map(({ month, price }) => ({ month, price })),
     ovx: ovx[ovx.length - 1],
     tbill: tbill3m,
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Chapter 8: is insurance cheap right now?
+// ---------------------------------------------------------------------------
+
+export type VolData = {
+  /** The latest date that has both an OVX close and a realized vol */
+  asOf: string;
+  /** Implied vol: the OVX close, in vol points (57.2 = 57.2% a year) */
+  iv: number;
+  /** 30-day realized vol of the front-month future, in vol points */
+  rv: number;
+  /** iv − rv, in vol points */
+  spread: number;
+  /** Share of the daily spreads in the window at or below today's, 0 to 100 */
+  percentile: number;
+  /** First date of the 3-year window, and how many trading days are in it */
+  windowFrom: string;
+  days: number;
+  /** [date, iv, rv] for every day in the window, in vol points */
+  rows: [string, number, number][];
+};
+
+export function volData(market: MarketData): VolData | null {
+  const { front } = market;
+  const ovxByDate = new Map(market.ovx.map((o) => [o.date, o.value]));
+
+  // One row for every trading day that has both numbers. realizedVol() skips
+  // roll days and reads the 21 returns ending on that day.
+  const all: { date: string; iv: number; rv: number }[] = [];
+  for (let i = 21; i < front.length; i++) {
+    const iv = ovxByDate.get(front[i].date);
+    if (iv === undefined) continue;
+    const rv = realizedVol(front.slice(i - 21, i + 1));
+    if (rv === null) continue;
+    all.push({ date: front[i].date, iv, rv: rv * 100 });
+  }
+  if (all.length === 0) return null;
+
+  const last = all[all.length - 1];
+  // The same calendar day three years earlier, e.g. 2026-11-09 → 2023-11-09.
+  const threeYearsAgo = `${Number(last.date.slice(0, 4)) - 3}${last.date.slice(4)}`;
+  const recent = all.filter((row) => row.date >= threeYearsAgo);
+  // Without close to three years of history the ranking would mislead.
+  if (recent.length < 500) return null;
+
+  const spread = last.iv - last.rv;
+  const round = (n: number) => Math.round(n * 100) / 100;
+  return {
+    asOf: last.date,
+    iv: last.iv,
+    rv: last.rv,
+    spread,
+    percentile: percentileRank(
+      recent.map((row) => row.iv - row.rv),
+      spread,
+    ),
+    windowFrom: recent[0].date,
+    days: recent.length,
+    rows: recent.map((row) => [row.date, round(row.iv), round(row.rv)]),
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Chapter 9: the hedge desk
+// ---------------------------------------------------------------------------
+
+export type SandboxData = OptionData & {
+  /** Today's front-month price, $/bbl: where every stress path starts */
+  front: number;
+  /** The 12-month strip (swap price), rounded to the cent */
+  strip: number;
+  /** Date of the latest spot price the scenarios were built from */
+  spotAsOf: string;
+  /** The four historical paths, rescaled to start at `front` */
+  scenarios: ScenarioPath[];
+};
+
+export function sandboxData(market: MarketData): SandboxData | null {
+  const options = optionData(market);
+  const curve = curveData(market);
+  // The sandbox prices a 12-month strip, so it needs all 12 contract months.
+  if (!options || !curve || options.months.length !== 12 || market.front.length === 0) return null;
+  const front = market.front[market.front.length - 1].close;
+  const scenarios = scenarioPaths(market.wtiSpot, front);
+  if (scenarios.length === 0) return null;
+  return {
+    ...options,
+    front,
+    strip: curve.strip,
+    spotAsOf: market.wtiSpot[market.wtiSpot.length - 1].date,
+    scenarios,
   };
 }

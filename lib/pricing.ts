@@ -171,17 +171,28 @@ export function zeroCostCallStrike(
   const target = black76Put(F, putStrike, sigma, T, r);
   // The gap is positive when the call is worth more than the put.
   const gap = (strike: number) => black76Call(F, strike, sigma, T, r) - target;
+  return bisectCallStrike(gap, F, 3 * F, 0.001);
+}
 
-  let low = F;
-  let high = 3 * F;
-  // Call value falls as the strike rises, so the answer must sit between a
-  // strike where the call is too rich (low) and one where it is too cheap (high).
+/**
+ * Bisection for a call strike: `gap(strike)` is call value minus put value,
+ * which falls as the strike rises. Returns null if the answer is not between
+ * `low` and `high`.
+ */
+function bisectCallStrike(
+  gap: (strike: number) => number,
+  low: number,
+  high: number,
+  tolerance: number,
+): number | null {
+  // The answer must sit between a strike where the call is too rich (low)
+  // and one where it is too cheap (high).
   if (gap(low) < 0 || gap(high) > 0) return null;
 
   for (let i = 0; i < 100; i++) {
     const mid = (low + high) / 2;
     const g = gap(mid);
-    if (Math.abs(g) < 0.001) return mid;
+    if (Math.abs(g) < tolerance) return mid;
     if (g > 0) low = mid;
     else high = mid;
   }
@@ -297,4 +308,151 @@ export function rollYield(prices: number[]): number {
  */
 export function swapMarkToMarket(swapPrice: number, price: number, barrels: number): number {
   return (swapPrice - price) * barrels;
+}
+
+// ---------------------------------------------------------------------------
+// Chapter 8: is insurance cheap right now?
+// ---------------------------------------------------------------------------
+
+/**
+ * Percentile rank from 0 to 100: the share of `values` at or below `x`.
+ * 26 means x is higher than (or equal to) 26% of the values.
+ */
+export function percentileRank(values: number[], x: number): number {
+  if (values.length === 0) return NaN;
+  return (values.filter((v) => v <= x).length / values.length) * 100;
+}
+
+// ---------------------------------------------------------------------------
+// Chapter 9: the hedge desk. A structure is a stack of "legs", each running
+// for a strip of monthly contracts (month 1 expires in 1 month, and so on).
+// ---------------------------------------------------------------------------
+
+export type LegType = "swap" | "longPut" | "shortPut" | "shortCall";
+
+export type Leg = {
+  type: LegType;
+  /** Strike in $/bbl (for a swap: the fixed price Dana receives) */
+  strike: number;
+  /** Barrels per month */
+  volume: number;
+};
+
+/** What the option pricing needs for a strip of monthly contracts. */
+export type StripInputs = {
+  /** Futures price for each month, nearest first, $/bbl */
+  forwards: number[];
+  sigma: number;
+  r: number;
+};
+
+/** Years to expiry of the strip's month at `index` (0 = the nearest month). */
+const stripT = (index: number) => (index + 1) / 12;
+
+/**
+ * What one leg pays Dana per barrel when oil settles at S:
+ *   swap        K − S          (she receives fixed, pays the market)
+ *   long put    max(K − S, 0)
+ *   short put   −max(K − S, 0)
+ *   short call  −max(S − K, 0)
+ */
+export function legPayoff(leg: Leg, S: number): number {
+  switch (leg.type) {
+    case "swap":
+      return leg.strike - S;
+    case "longPut":
+      return Math.max(leg.strike - S, 0);
+    case "shortPut":
+      return Math.min(S - leg.strike, 0); // the same as −max(K − S, 0)
+    case "shortCall":
+      return Math.min(leg.strike - S, 0); // the same as −max(S − K, 0)
+  }
+}
+
+/**
+ * One leg's premium per barrel for one month. Positive means Dana pays it,
+ * negative means she receives it. A swap costs nothing up front.
+ */
+export function legPremium(leg: Leg, F: number, sigma: number, T: number, r: number): number {
+  switch (leg.type) {
+    case "swap":
+      return 0;
+    case "longPut":
+      return black76Put(F, leg.strike, sigma, T, r);
+    case "shortPut":
+      return -black76Put(F, leg.strike, sigma, T, r);
+    case "shortCall":
+      return -black76Call(F, leg.strike, sigma, T, r);
+  }
+}
+
+/**
+ * One leg's Greeks per barrel for one month, signed for Dana's side of it
+ * (a short option flips every sign). A swap is delta −1 and nothing else:
+ * it loses $1 for every $1 oil rises.
+ */
+export function legGreeks(leg: Leg, F: number, sigma: number, T: number, r: number): Greeks {
+  if (leg.type === "swap") return { delta: -1, gamma: 0, vega: 0, theta: 0 };
+  const g = black76Greeks(leg.type === "shortCall" ? "call" : "put", F, leg.strike, sigma, T, r);
+  const sign = leg.type === "longPut" ? 1 : -1;
+  return {
+    delta: sign * g.delta,
+    gamma: sign * g.gamma,
+    vega: sign * g.vega,
+    theta: sign * g.theta,
+  };
+}
+
+/** One leg's premium in $ for the whole strip = Σ over months of premium × volume. */
+export function legStripPremium(leg: Leg, strip: StripInputs): number {
+  return strip.forwards.reduce(
+    (sum, F, i) => sum + legPremium(leg, F, strip.sigma, stripT(i), strip.r) * leg.volume,
+    0,
+  );
+}
+
+/** Net premium in $ for all legs over the whole strip; positive means Dana pays. */
+export function structurePremium(legs: Leg[], strip: StripInputs): number {
+  return legs.reduce((sum, leg) => sum + legStripPremium(leg, strip), 0);
+}
+
+/** What all the legs together pay Dana in $ for one month that settles at S. */
+export function structurePayoff(legs: Leg[], S: number): number {
+  return legs.reduce((sum, leg) => sum + legPayoff(leg, S) * leg.volume, 0);
+}
+
+/**
+ * Total Greeks across every leg and every month of the strip, scaled by
+ * volume: delta in barrels, gamma in barrels per $1, vega in $ per vol point,
+ * theta in $ per day.
+ */
+export function structureGreeks(legs: Leg[], strip: StripInputs): Greeks {
+  const total: Greeks = { delta: 0, gamma: 0, vega: 0, theta: 0 };
+  for (const leg of legs) {
+    strip.forwards.forEach((F, i) => {
+      const g = legGreeks(leg, F, strip.sigma, stripT(i), strip.r);
+      total.delta += g.delta * leg.volume;
+      total.gamma += g.gamma * leg.volume;
+      total.vega += g.vega * leg.volume;
+      total.theta += g.theta * leg.volume;
+    });
+  }
+  return total;
+}
+
+/**
+ * Zero-cost collar for a strip: one call strike, used in every month, whose
+ * premiums summed over the strip equal the summed premiums of the puts.
+ * Same bisection as zeroCostCallStrike, between the strip's average price F
+ * and 3F, but run until the total gap is negligible so the collar's net
+ * premium rounds to $0. Returns null if no strike in that range works.
+ */
+export function zeroCostStripCallStrike(strip: StripInputs, putStrike: number): number | null {
+  const { forwards, sigma, r } = strip;
+  const sumOver = (value: (F: number, T: number) => number) =>
+    forwards.reduce((sum, F, i) => sum + value(F, stripT(i)), 0);
+  const target = sumOver((F, T) => black76Put(F, putStrike, sigma, T, r));
+  const gap = (strike: number) => sumOver((F, T) => black76Call(F, strike, sigma, T, r)) - target;
+  const F = stripPrice(forwards);
+  return bisectCallStrike(gap, F, 3 * F, 1e-9);
 }

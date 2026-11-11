@@ -16,7 +16,7 @@ import {
   YAxis,
 } from "recharts";
 import type { Mode } from "@/lib/copy";
-import { price } from "@/lib/format";
+import { compactDollars, dollars, price } from "@/lib/format";
 import { axisLine, axisTick, TooltipBox } from "./parts";
 
 export type PayoffLine = {
@@ -54,7 +54,22 @@ type Props = {
   yLabel: string;
   markers?: PayoffMarker[];
   zone?: PayoffZone;
+  /**
+   * Set when the lines are dollar totals (e.g. revenue per month) instead of
+   * $ per barrel: the side axis then scales to the data and reads $800k, $1.2M.
+   */
+  money?: boolean;
 };
+
+/** Evenly spaced round numbers covering min to max, about five of them. */
+function roundTicks(min: number, max: number): number[] {
+  const rough = (max - min || 1) / 5;
+  const power = 10 ** Math.floor(Math.log10(rough));
+  const step = [1, 2, 2.5, 5, 10].map((m) => m * power).find((s) => s >= rough) ?? rough;
+  const ticks: number[] = [];
+  for (let v = Math.floor(min / step) * step; v < max + step; v += step) ticks.push(v);
+  return ticks;
+}
 
 type HoverProps = { active?: boolean; payload?: readonly { payload?: PayoffRow }[] };
 
@@ -70,7 +85,16 @@ export function payoffGrid(min: number, max: number, corners: number[] = []): nu
   return [...points].sort((a, b) => a - b);
 }
 
-export default function PayoffChart({ rows, lines, mode, xLabel, yLabel, markers, zone }: Props) {
+export default function PayoffChart({
+  rows,
+  lines,
+  mode,
+  xLabel,
+  yLabel,
+  markers,
+  zone,
+  money,
+}: Props) {
   const desk = mode === "desk";
   // Lines draw in once when the chart first appears; after that they follow
   // the sliders instantly, with no animation to lag behind the thumb.
@@ -82,10 +106,17 @@ export default function PayoffChart({ rows, lines, mode, xLabel, yLabel, markers
   for (let v = Math.ceil(xMin / 20) * 20; v <= xMax; v += 20) xTicks.push(v);
 
   const values = rows.flatMap((row) => lines.map((line) => row[line.key]));
-  const yMin = Math.min(xMin, Math.floor(Math.min(...values) / 10) * 10);
-  const yMax = Math.max(xMax, Math.ceil(Math.max(...values) / 10) * 10);
-  const yTicks: number[] = [];
-  for (let v = Math.ceil(yMin / 20) * 20; v <= yMax; v += 20) yTicks.push(v);
+  let yMin = Math.min(xMin, Math.floor(Math.min(...values) / 10) * 10);
+  let yMax = Math.max(xMax, Math.ceil(Math.max(...values) / 10) * 10);
+  let yTicks: number[] = [];
+  if (money) {
+    yTicks = roundTicks(Math.min(...values), Math.max(...values));
+    yMin = yTicks[0];
+    yMax = yTicks[yTicks.length - 1];
+  } else {
+    for (let v = Math.ceil(yMin / 20) * 20; v <= yMax; v += 20) yTicks.push(v);
+  }
+  const showValue = money ? dollars : price;
 
   const hover = ({ active, payload }: HoverProps) => {
     const row = payload?.[0]?.payload;
@@ -93,7 +124,7 @@ export default function PayoffChart({ rows, lines, mode, xLabel, yLabel, markers
     return (
       <TooltipBox
         title={`${xLabel}: ${price(row.s)}`}
-        rows={lines.map((line) => [line.label, price(row[line.key])])}
+        rows={lines.map((line) => [line.label, showValue(row[line.key])])}
       />
     );
   };
@@ -123,10 +154,10 @@ export default function PayoffChart({ rows, lines, mode, xLabel, yLabel, markers
               tickLine={false}
             />
             <YAxis
-              width={46}
+              width={money ? 54 : 46}
               domain={[yMin, yMax]}
               ticks={yTicks}
-              tickFormatter={(v: number) => `$${v}`}
+              tickFormatter={(v: number) => (money ? compactDollars(v) : `$${v}`)}
               tick={axisTick}
               axisLine={false}
               tickLine={false}
