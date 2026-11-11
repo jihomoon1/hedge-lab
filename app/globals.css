@@ -1,0 +1,46 @@
+@import "tailwindcss";
+
+/* Plain English mode: warm paper, like an interactive news explainer. */
+:root,
+[data-mode="plain"] {
+  --paper: #f7f2e8;
+  --ink: #1f1b16;
+  --muted: #6b6257;
+  --rule: #ddd4c3;
+  --crude: #b45309; /* crude amber: Dana's revenue, the oil price */
+  --hedge: #0f766e; /* teal: the hedge */
+  --gain: #0f766e;
+  --loss: #b3261e;
+}
+
+/* Desk Speak mode: a dark trading terminal. */
+[data-mode="desk"] {
+  --paper: #0b0d0e;
+  --ink: #e6e1d6;
+  --muted: #8a8f93;
+  --rule: #24292c;
+  --crude: #ffb000;
+  --hedge: #3ddc84;
+  --gain: #3ddc84;
+  --loss: #ff5c5c;
+}
+
+/* Makes the variables above usable as Tailwind classes: bg-paper, text-ink... */
+@theme inline {
+  --color-paper: var(--paper);
+  --color-ink: var(--ink);
+  --color-muted: var(--muted);
+  --color-rule: var(--rule);
+  --color-crude: var(--crude);
+  --color-hedge: var(--hedge);
+  --color-gain: var(--gain);
+  --color-loss: var(--loss);
+  --font-serif: var(--font-fraunces);
+  --font-sans: var(--font-inter);
+  --font-mono: var(--font-jetbrains-mono);
+}
+
+body {
+  background: var(--paper);
+  color: var(--ink);
+}
