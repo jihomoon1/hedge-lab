@@ -4,7 +4,7 @@
 
 Hedge Lab is a scroll-through site that teaches commodity derivatives by following one fictional oil producer, Dana, through her hedging decisions: a swap, a put, a collar and a three-way, each priced off real market data that refreshes every weekday. Every screen works on two levels. A beginner reads a story in plain English and drags sliders; a trader flips one switch to Desk Speak and sees strikes, Greeks and vol points on the same chart. Same chart, two vocabularies.
 
-**Live site:** _link added after deploy_
+**Live site:** https://hedge-lab-gamma.vercel.app
 
 | Plain English | Desk Speak |
 | --- | --- |
