@@ -1,11 +1,14 @@
 "use client";
 // A payoff chart: what Dana receives per barrel (up the side) against where
-// oil ends up (along the bottom). Each line gets its own dash style.
+// oil ends up (along the bottom). Each line gets its own dash style, and the
+// chart can mark strikes, shade a zone and follow a moving price.
 
+import { useState } from "react";
 import {
   CartesianGrid,
   Line,
   LineChart,
+  ReferenceArea,
   ReferenceLine,
   ResponsiveContainer,
   Tooltip,
@@ -31,24 +34,58 @@ export type PayoffLine = {
 /** One row per oil price `s`, with one number per line key. */
 export type PayoffRow = { s: number } & Record<string, number>;
 
+/** A vertical marker with a short label, e.g. a strike or today's price. */
+export type PayoffMarker = {
+  x: number;
+  label: string;
+  strong?: boolean;
+  /** Which label row to use (0 is lowest). Left out, rows alternate 0 and 1. */
+  row?: number;
+};
+
+/** A shaded band between two oil prices, with a label inside it. */
+export type PayoffZone = { from: number; to: number; label: string };
+
 type Props = {
   rows: PayoffRow[];
   lines: PayoffLine[];
   mode: Mode;
   xLabel: string;
   yLabel: string;
-  /** A vertical marker, e.g. today's price */
-  marker?: { x: number; label: string };
+  markers?: PayoffMarker[];
+  zone?: PayoffZone;
 };
 
 type HoverProps = { active?: boolean; payload?: readonly { payload?: PayoffRow }[] };
 
-export default function PayoffChart({ rows, lines, mode, xLabel, yLabel, marker }: Props) {
+/**
+ * Builds the list of oil prices a payoff chart needs: one every $5, plus the
+ * exact strikes, so the corners of each line land exactly on its strike.
+ */
+export function payoffGrid(min: number, max: number, corners: number[] = []): number[] {
+  const points = new Set<number>();
+  for (let s = min; s <= max; s += 5) points.add(s);
+  points.add(max);
+  for (const corner of corners) if (corner > min && corner < max) points.add(corner);
+  return [...points].sort((a, b) => a - b);
+}
+
+export default function PayoffChart({ rows, lines, mode, xLabel, yLabel, markers, zone }: Props) {
   const desk = mode === "desk";
+  // Lines draw in once when the chart first appears; after that they follow
+  // the sliders instantly, with no animation to lag behind the thumb.
+  const [drawn, setDrawn] = useState(false);
+
   const xMin = rows[0].s;
   const xMax = rows[rows.length - 1].s;
-  const ticks: number[] = [];
-  for (let v = Math.ceil(xMin / 20) * 20; v <= xMax; v += 20) ticks.push(v);
+  const xTicks: number[] = [];
+  for (let v = Math.ceil(xMin / 20) * 20; v <= xMax; v += 20) xTicks.push(v);
+
+  const values = rows.flatMap((row) => lines.map((line) => row[line.key]));
+  const yMin = Math.min(xMin, Math.floor(Math.min(...values) / 10) * 10);
+  const yMax = Math.max(xMax, Math.ceil(Math.max(...values) / 10) * 10);
+  const yTicks: number[] = [];
+  for (let v = Math.ceil(yMin / 20) * 20; v <= yMax; v += 20) yTicks.push(v);
 
   const hover = ({ active, payload }: HoverProps) => {
     const row = payload?.[0]?.payload;
@@ -61,18 +98,25 @@ export default function PayoffChart({ rows, lines, mode, xLabel, yLabel, marker 
     );
   };
 
+  // Marker labels sit on alternating rows, left to right, so neighbours
+  // don't collide. A marker with its own `row` keeps to that row.
+  const placedMarkers = [...(markers ?? [])]
+    .sort((a, b) => a.x - b.x)
+    .map((marker, i) => ({ ...marker, row: marker.row ?? i % 2 }));
+  const topMargin = 22 + 15 * Math.max(0, ...placedMarkers.map((m) => m.row));
+
   return (
     <div className="flex h-full flex-col">
       <p className="text-xs text-muted">{yLabel}</p>
       <div className="min-h-0 flex-1">
         <ResponsiveContainer width="100%" height="100%">
-          <LineChart data={rows} margin={{ top: 18, right: 14, bottom: 0, left: 0 }}>
+          <LineChart data={rows} margin={{ top: topMargin, right: 14, bottom: 0, left: 0 }}>
             {desk && <CartesianGrid stroke="var(--rule)" />}
             <XAxis
               dataKey="s"
               type="number"
               domain={[xMin, xMax]}
-              ticks={ticks}
+              ticks={xTicks}
               tickFormatter={(v: number) => `$${v}`}
               tick={axisTick}
               axisLine={axisLine}
@@ -80,29 +124,48 @@ export default function PayoffChart({ rows, lines, mode, xLabel, yLabel, marker 
             />
             <YAxis
               width={46}
-              domain={[xMin, xMax]}
-              ticks={ticks}
+              domain={[yMin, yMax]}
+              ticks={yTicks}
               tickFormatter={(v: number) => `$${v}`}
               tick={axisTick}
               axisLine={false}
               tickLine={false}
             />
-            {marker && (
-              <ReferenceLine
-                x={marker.x}
-                stroke="var(--muted)"
-                strokeWidth={1}
-                strokeDasharray="2 3"
+            {zone && zone.to > zone.from && (
+              <ReferenceArea
+                x1={zone.from}
+                x2={zone.to}
+                fill="var(--loss)"
+                fillOpacity={0.14}
+                stroke="none"
                 label={{
-                  value: marker.label,
-                  position: "top",
-                  fill: "var(--muted)",
+                  value: zone.label,
+                  position: "insideBottom",
+                  fill: "var(--loss)",
                   fontSize: 12,
+                  fontWeight: 600,
                 }}
               />
             )}
+            {placedMarkers.map((marker, i) => (
+              <ReferenceLine
+                key={`${marker.label}-${i}`}
+                x={marker.x}
+                stroke={marker.strong ? "var(--ink)" : "var(--muted)"}
+                strokeWidth={marker.strong ? 1.5 : 1}
+                strokeDasharray={marker.strong ? undefined : "2 3"}
+                label={{
+                  value: marker.label,
+                  position: "top",
+                  dy: -15 * marker.row,
+                  fill: marker.strong ? "var(--ink)" : "var(--muted)",
+                  fontSize: 12,
+                  fontWeight: marker.strong ? 600 : 400,
+                }}
+              />
+            ))}
             <Tooltip content={hover} cursor={{ stroke: "var(--muted)", strokeWidth: 1 }} />
-            {lines.map((line) => (
+            {lines.map((line, i) => (
               <Line
                 key={line.key}
                 dataKey={line.key}
@@ -113,7 +176,9 @@ export default function PayoffChart({ rows, lines, mode, xLabel, yLabel, marker 
                 strokeOpacity={line.opacity ?? 1}
                 dot={false}
                 activeDot={{ r: 4, stroke: "var(--paper)", strokeWidth: 2 }}
-                animationDuration={250}
+                isAnimationActive={!drawn}
+                animationDuration={500}
+                onAnimationEnd={i === 0 ? () => setDrawn(true) : undefined}
               />
             ))}
           </LineChart>

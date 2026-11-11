@@ -22,6 +22,13 @@ export const dollars = (n: number) => (n < 0 ? `(${money(n, 0)})` : money(n, 0))
 /** A market price, which can genuinely be negative: $86.04 or −$36.98. */
 export const price = (n: number) => (n < 0 ? `${MINUS}${money(n, 2)}` : money(n, 2));
 
+/** A short price for tight spots like chart labels: $72 or $90.90. */
+export const priceShort = (n: number) =>
+  Number.isInteger(n) ? `${n < 0 ? MINUS : ""}$${Math.abs(n)}` : price(n);
+
+/** A bare strike for Desk shorthand like "collar 72/90.90". */
+export const strikeText = (n: number) => (Number.isInteger(n) ? String(n) : n.toFixed(2));
+
 /** A price difference with its sign always shown: +$1.20 or −$12.19. */
 export const signedPrice = (n: number) => `${n < 0 ? MINUS : "+"}${money(n, 2)}`;
 

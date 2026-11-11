@@ -37,6 +37,7 @@ export default function Swap({ curve, today }: Props) {
     open: `${100 - hedgePct}%`,
     slope: (1 - h).toFixed(2),
     barrels: (h * DANA.volume).toLocaleString("en-US"),
+    stripWeekAgo: curve.stripWeekAgo === null ? "" : price(curve.stripWeekAgo),
   };
 
   // One row every $5 from $20 to $130; every line here is straight.
@@ -83,7 +84,7 @@ export default function Swap({ curve, today }: Props) {
         mode={mode}
         xLabel={text.xLabel}
         yLabel={text.yLabel}
-        marker={{ x: today, label: fill(text.todayMark, values) }}
+        markers={[{ x: today, label: fill(text.todayMark, values) }]}
       />
     </ChartFrame>
   );
@@ -91,7 +92,12 @@ export default function Swap({ curve, today }: Props) {
   // Three "what if" prices: a crash, today's price, and a spike.
   const scenarios = [40, today, 120];
   const hedgedBarrels = h * DANA.volume;
-  const mtmAtSpot = swapMarkToMarket(strip, today, hedgedBarrels * 12);
+  // Desk mode: suppose Dana locked in a week ago, at last week's strip. She
+  // receives that fixed price, so the swap has gained if the strip has since fallen.
+  const mtm =
+    curve.stripWeekAgo === null
+      ? null
+      : swapMarkToMarket(curve.stripWeekAgo, strip, hedgedBarrels * 12);
 
   const controls = (
     <div className="space-y-5">
@@ -136,13 +142,16 @@ export default function Swap({ curve, today }: Props) {
               label: copy.swap.desk_stats.notional,
               value: fill(copy.swap.desk_stats.notionalValue, values),
             },
-            { label: copy.swap.desk_stats.mtmInception, value: dollars(0) },
-            {
-              label: fill(copy.swap.desk_stats.mtmSpot, values),
-              value: dollars(mtmAtSpot),
-              note: fill(copy.swap.desk_stats.mtmMath, values),
-              tone: mtmAtSpot < 0 ? "loss" : mtmAtSpot > 0 ? "gain" : undefined,
-            },
+            ...(mtm === null
+              ? []
+              : [
+                  {
+                    label: fill(copy.swap.desk_stats.struck, values),
+                    value: fill(copy.swap.desk_stats.mtmValue, { mtm: dollars(mtm) }),
+                    note: fill(copy.swap.desk_stats.mtmMath, values),
+                    tone: mtm < 0 ? ("loss" as const) : mtm > 0 ? ("gain" as const) : undefined,
+                  },
+                ]),
           ]}
         />
       )}

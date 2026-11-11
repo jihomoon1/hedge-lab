@@ -182,6 +182,13 @@ export type HistoryData = {
   low: Observation;
   /** The highest 30-day realized vol in the series */
   rvMax: Observation;
+  /**
+   * Stretches of dates with no vol because a price in the 21-day window was
+   * at or below zero (log returns are undefined there).
+   */
+  rvGaps: { from: string; to: string }[];
+  /** The highest vol in 2020 outside those gaps, if 2020 is in the data */
+  rvMax2020: Observation | null;
 };
 
 const highest = (list: Observation[]) =>
@@ -196,7 +203,8 @@ export function historyData(market: MarketData): HistoryData | null {
     spot.filter((o) => o.date >= from && o.date <= to);
 
   // Rolling 30-day realized vol of the spot price. Spot has no contract
-  // rolls, and realizedVol() already skips days at or below zero.
+  // rolls. realizedVol() returns null for any window that touches a price at
+  // or below zero, which leaves a gap instead of a made-up number.
   const closes = spot.map((o) => ({ close: o.value }));
   const rows: HistoryData["rows"] = spot.map((o, i) => [
     o.date,
@@ -204,6 +212,16 @@ export function historyData(market: MarketData): HistoryData | null {
     i >= 21 ? realizedVol(closes.slice(i - 21, i + 1)) : null,
   ]);
   const vols = rows.flatMap(([date, , rv]) => (rv === null ? [] : [{ date, value: rv }]));
+
+  // Find each run of missing vol (after the first 21 warm-up days).
+  const rvGaps: HistoryData["rvGaps"] = [];
+  for (let i = 21; i < rows.length; i++) {
+    if (rows[i][2] !== null) continue;
+    const from = rows[i][0];
+    while (i + 1 < rows.length && rows[i + 1][2] === null) i++;
+    rvGaps.push({ from, to: rows[i][0] });
+  }
+  const vols2020 = vols.filter((v) => v.date.startsWith("2020"));
 
   // Each event is found in the data, never typed in by hand.
   const callouts: Callout[] = [];
@@ -283,6 +301,8 @@ export function historyData(market: MarketData): HistoryData | null {
     high: highest(spot),
     low: lowest(spot),
     rvMax: vols.length ? highest(vols) : { date: spot[0].date, value: 0 },
+    rvGaps,
+    rvMax2020: vols2020.length ? highest(vols2020) : null,
   };
 }
 
@@ -302,6 +322,8 @@ export type CurveData = {
   rollYield: number;
   /** The 12-month strip: the average of the contract months, i.e. the swap price */
   strip: number;
+  /** The same average for the curve five trading days earlier, or null if any month is missing */
+  stripWeekAgo: number | null;
   shape: "contango" | "backwardation" | "flat";
 };
 
@@ -310,6 +332,8 @@ export function curveData(market: MarketData): CurveData | null {
   if (curve.length < 2) return null;
   const prices = curve.map((c) => c.price);
   const spread = curveSpread(prices);
+  const weekAgo = curve.flatMap((c) => (c.weekAgo === null ? [] : [c.weekAgo]));
+  const cents = (n: number) => Math.round(n * 100) / 100;
   return {
     asOf: curve[0].date,
     points: curve.map(({ month, ticker, price, weekAgo }) => ({ month, ticker, price, weekAgo })),
@@ -319,7 +343,34 @@ export function curveData(market: MarketData): CurveData | null {
     rollYield: rollYield(prices),
     // Rounded to the cent, the way a swap is quoted, so the math shown on
     // the page can be re-done by hand from the numbers on screen.
-    strip: Math.round(stripPrice(prices) * 100) / 100,
+    strip: cents(stripPrice(prices)),
+    stripWeekAgo: weekAgo.length === curve.length ? cents(stripPrice(weekAgo)) : null,
     shape: spread > 0 ? "contango" : spread < 0 ? "backwardation" : "flat",
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Chapters 5 to 7: option pricing inputs
+// ---------------------------------------------------------------------------
+
+export type OptionData = {
+  /** Date of the futures prices */
+  asOf: string;
+  /** Futures price by months to expiry: months[0] expires in 1 month, and so on */
+  months: { month: string; price: number }[];
+  /** Latest OVX close, in vol points (e.g. 57.2), and its date */
+  ovx: Observation;
+  /** Latest 3-month T-bill rate, in percent (e.g. 4.06), and its date */
+  tbill: Observation;
+};
+
+export function optionData(market: MarketData): OptionData | null {
+  const { curve, ovx, tbill3m } = market;
+  if (curve.length === 0 || ovx.length === 0 || !tbill3m) return null;
+  return {
+    asOf: curve[0].date,
+    months: curve.map(({ month, price }) => ({ month, price })),
+    ovx: ovx[ovx.length - 1],
+    tbill: tbill3m,
   };
 }

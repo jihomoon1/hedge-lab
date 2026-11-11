@@ -3,10 +3,13 @@ import {
   black76Call,
   black76Greeks,
   black76Put,
+  collarNetPremium,
+  collarRevenue,
   curveSpread,
   monthlyProfit,
   monthlyRevenue,
   normCdf,
+  putRevenue,
   realizedVol,
   rollYield,
   stripPrice,
@@ -205,6 +208,16 @@ describe("realizedVol", () => {
     expect(realizedVol([{ close: 5 }, { close: 500 }, ...calm])).toBeCloseTo(0, 10);
   });
 
+  it("returns null when any price in the window is at or below zero", () => {
+    const calm = Array.from({ length: 22 }, (_, i) => ({ close: 50 * 1.01 ** i }));
+    const withNegative = calm.map((p, i) => (i === 10 ? { close: -36.98 } : p));
+    const withZero = calm.map((p, i) => (i === 21 ? { close: 0 } : p));
+    expect(realizedVol(withNegative)).toBeNull();
+    expect(realizedVol(withZero)).toBeNull();
+    // Once the bad day has left the 21-return window, vol is defined again.
+    expect(realizedVol([{ close: -36.98 }, ...calm])).not.toBeNull();
+  });
+
   it("returns null without enough data", () => {
     expect(realizedVol([{ close: 60 }, { close: 61 }])).toBeNull();
   });
@@ -248,5 +261,35 @@ describe("futures curve", () => {
     expect(swapMarkToMarket(75, 80, 5_000)).toBe(-25_000);
     expect(swapMarkToMarket(75, 60, 5_000)).toBe(75_000);
     expect(swapMarkToMarket(75, 75, 5_000)).toBe(0);
+  });
+});
+
+describe("put and collar payoffs", () => {
+  it("a put floors revenue at strike − premium", () => {
+    // Below the strike: 40 + (60 − 40) − 3 = 57. Above it: 80 + 0 − 3 = 77.
+    expect(putRevenue(40, 60, 3)).toBe(57);
+    expect(putRevenue(20, 60, 3)).toBe(57);
+    expect(putRevenue(80, 60, 3)).toBe(77);
+  });
+
+  it("collar net premium is Put − Call, and zero at the solved strike", () => {
+    const expected = black76Put(F, 55, sigma, T, r) - black76Call(F, 70, sigma, T, r);
+    expect(collarNetPremium(F, 55, 70, sigma, T, r)).toBeCloseTo(expected, 10);
+    const free = zeroCostCallStrike(F, 55, sigma, T, r)!;
+    expect(Math.abs(collarNetPremium(F, 55, free, sigma, T, r))).toBeLessThan(0.001);
+  });
+
+  it("a collar holds revenue between the floor and the ceiling", () => {
+    // Floor: 40 + 20 − 0 − 1 = 59. Middle: 65 − 1 = 64. Ceiling: 90 − 15 − 1 = 74.
+    expect(collarRevenue(40, 60, 75, 1)).toBe(59);
+    expect(collarRevenue(65, 60, 75, 1)).toBe(64);
+    expect(collarRevenue(90, 60, 75, 1)).toBe(74);
+  });
+
+  it("a collar and a three-way match above the low strike, then part ways", () => {
+    const strikes = { low: 50, mid: 60, high: 75 };
+    expect(threeWayRevenue(55, strikes, 1)).toBe(collarRevenue(55, 60, 75, 1));
+    // At $20 the collar still pays the floor; the three-way has fallen $30 with the market.
+    expect(collarRevenue(20, 60, 75, 1) - threeWayRevenue(20, strikes, 1)).toBe(30);
   });
 });

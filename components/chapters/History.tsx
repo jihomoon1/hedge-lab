@@ -50,7 +50,13 @@ export default function History({ data }: { data: HistoryData }) {
         playToken={playToken}
         playing={playing}
         onPlayEnd={onPlayEnd}
-        labels={{ price: text.priceSeries, vol: text.volSeries, through: text.through }}
+        labels={{
+          price: text.priceSeries,
+          vol: text.volSeries,
+          through: text.through,
+          volGapNote: text.volGapNote,
+        }}
+        rvGaps={data.rvGaps.map((gap) => ({ from: Date.parse(gap.from), to: Date.parse(gap.to) }))}
       />
     </ChartFrame>
   );

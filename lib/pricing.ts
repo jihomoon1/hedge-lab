@@ -119,7 +119,9 @@ export type PricePoint = {
  *
  *   RV = √252 · stdev( ln(F_t / F_(t−1)) ) over the last 21 trading days
  *
- * Returns on roll days are skipped. Returns null if there is too little data.
+ * Returns on roll days are skipped. Returns null if there is too little data,
+ * or if any price in the window is at or below zero: a log return is
+ * undefined there, so no honest vol number exists for that window.
  *
  * Roll days are flagged in lib/feeds.ts as the first trading day after a
  * contract's expiry. Checked against Yahoo on 2026-11-11: CL=F differed from
@@ -129,14 +131,12 @@ export type PricePoint = {
 export function realizedVol(points: PricePoint[], window = 21): number | null {
   if (points.length < window + 1) return null;
   const recent = points.slice(-(window + 1));
+  if (recent.some((p) => p.close <= 0)) return null; // ln() is undefined at or below zero
 
   const returns: number[] = [];
   for (let i = 1; i < recent.length; i++) {
-    const prev = recent[i - 1].close;
-    const cur = recent[i].close;
     if (recent[i].roll) continue;
-    if (prev <= 0 || cur <= 0) continue; // ln() is undefined at or below zero
-    returns.push(Math.log(cur / prev));
+    returns.push(Math.log(recent[i].close / recent[i - 1].close));
   }
   if (returns.length < 2) return null;
 
@@ -186,6 +186,36 @@ export function zeroCostCallStrike(
     else high = mid;
   }
   return (low + high) / 2;
+}
+
+/** Revenue with a put = S + max(K − S, 0) − premium: a floor at K, minus its cost. */
+export function putRevenue(S: number, strike: number, premium: number): number {
+  return S + Math.max(strike - S, 0) - premium;
+}
+
+/** Collar net premium = Put(K_put) − Call(K_call); positive means Dana pays. */
+export function collarNetPremium(
+  F: number,
+  putStrike: number,
+  callStrike: number,
+  sigma: number,
+  T: number,
+  r: number,
+): number {
+  return black76Put(F, putStrike, sigma, T, r) - black76Call(F, callStrike, sigma, T, r);
+}
+
+/**
+ * Revenue with a collar = S + max(K_put − S, 0) − max(S − K_call, 0) − net_premium:
+ * a floor from the put Dana buys and a ceiling from the call she sells.
+ */
+export function collarRevenue(
+  S: number,
+  putStrike: number,
+  callStrike: number,
+  netPremium: number,
+): number {
+  return S + Math.max(putStrike - S, 0) - Math.max(S - callStrike, 0) - netPremium;
 }
 
 export type ThreeWayStrikes = {

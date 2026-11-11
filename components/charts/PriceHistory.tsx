@@ -9,6 +9,7 @@ import {
   CartesianGrid,
   Line,
   LineChart,
+  ReferenceArea,
   ReferenceDot,
   ReferenceLine,
   ResponsiveContainer,
@@ -41,7 +42,9 @@ type Props = {
   playToken: number;
   playing: boolean;
   onPlayEnd: () => void;
-  labels: { price: string; vol: string; through: string };
+  labels: { price: string; vol: string; through: string; volGapNote: string };
+  /** Date ranges (as timestamps) where vol is left blank on purpose */
+  rvGaps: { from: number; to: number }[];
 };
 
 // Both panels use the same left axis width and right margin so their time
@@ -50,6 +53,8 @@ const AXIS_WIDTH = 46;
 const RIGHT_MARGIN = 14;
 const MARGIN = { top: 14, right: RIGHT_MARGIN, bottom: 0, left: 0 };
 const SYNC_ID = "price-history";
+/** Extra width added to each side of a vol gap band: 20 days, in milliseconds. */
+const GAP_PAD = 20 * 86_400_000;
 
 function PinShape({ cx, cy, n }: { cx?: number; cy?: number; n: number }) {
   if (cx === undefined || cy === undefined) return null;
@@ -81,6 +86,7 @@ export default function PriceHistory({
   playing,
   onPlayEnd,
   labels,
+  rvGaps,
 }: Props) {
   const reduceMotion = useReducedMotion();
   const desk = mode === "desk";
@@ -206,7 +212,18 @@ export default function PriceHistory({
 
       {desk && (
         <>
-          <p className="mt-2 pl-[46px] font-mono text-xs text-muted">{labels.vol}</p>
+          <p className="mt-2 pl-[46px] font-mono text-xs text-muted">
+            {labels.vol}
+            {rvGaps.length > 0 && (
+              <span className="block font-sans">
+                <span
+                  aria-hidden
+                  className="mr-1.5 inline-block h-2.5 w-2.5 border border-muted bg-muted/40 align-baseline"
+                />
+                {labels.volGapNote}
+              </span>
+            )}
+          </p>
           <div className="min-h-0 flex-[1.5]">
             <ResponsiveContainer width="100%" height="100%">
               <LineChart data={rows} margin={{ ...MARGIN, top: 4 }} syncId={SYNC_ID}>
@@ -227,6 +244,20 @@ export default function PriceHistory({
                   content={() => null}
                   cursor={{ stroke: "var(--muted)", strokeWidth: 1 }}
                 />
+                {/* Shade each stretch where vol is deliberately left blank. The
+                    band is widened a little so a one-month gap stays visible
+                    on a 20-year axis. */}
+                {rvGaps.map((gap) => (
+                  <ReferenceArea
+                    key={gap.from}
+                    x1={gap.from - GAP_PAD}
+                    x2={gap.to + GAP_PAD}
+                    fill="var(--muted)"
+                    fillOpacity={0.4}
+                    stroke="var(--muted)"
+                    strokeWidth={1}
+                  />
+                ))}
                 <Line
                   dataKey="rv"
                   stroke="var(--ink)"
@@ -234,7 +265,6 @@ export default function PriceHistory({
                   dot={false}
                   activeDot={{ r: 3, stroke: "var(--paper)", strokeWidth: 2 }}
                   isAnimationActive={false}
-                  connectNulls
                 />
               </LineChart>
             </ResponsiveContainer>
