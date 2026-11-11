@@ -5,7 +5,7 @@ import { promises as fs } from "node:fs";
 import path from "node:path";
 import { get, put } from "@vercel/blob";
 import { cacheLife, cacheTag } from "next/cache";
-import { realizedVol } from "./pricing";
+import { curveSpread, realizedVol, rollYield, stripPrice } from "./pricing";
 
 /** One daily close of the front-month WTI future (Yahoo `CL=F`). */
 export type FrontPoint = {
@@ -154,5 +154,172 @@ export function heroData(market: MarketData): HeroData | null {
     year,
     yearLow: Math.min(...closes),
     yearHigh: Math.max(...closes),
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Chapter 2: price history
+// ---------------------------------------------------------------------------
+
+/** One pinned event on the history chart. */
+export type Callout = {
+  key: "crash2008" | "priceWar" | "belowZero" | "ukraine" | "iran";
+  /** Where the pin sits on the chart */
+  date: string;
+  price: number;
+  /** Numbers and dates the callout's sentence is filled in with */
+  values: Record<string, number>;
+  dates: Record<string, string>;
+};
+
+export type HistoryData = {
+  /** Date of the latest spot price */
+  asOf: string;
+  /** [date, spot price, 30-day realized vol or null], daily since 2007 */
+  rows: [string, number, number | null][];
+  callouts: Callout[];
+  high: Observation;
+  low: Observation;
+  /** The highest 30-day realized vol in the series */
+  rvMax: Observation;
+};
+
+const highest = (list: Observation[]) =>
+  list.reduce((best, o) => (o.value > best.value ? o : best));
+const lowest = (list: Observation[]) =>
+  list.reduce((best, o) => (o.value < best.value ? o : best));
+
+export function historyData(market: MarketData): HistoryData | null {
+  const spot = market.wtiSpot.filter((o) => o.date >= "2007-01-01");
+  if (spot.length < 30) return null;
+  const between = (from: string, to: string) =>
+    spot.filter((o) => o.date >= from && o.date <= to);
+
+  // Rolling 30-day realized vol of the spot price. Spot has no contract
+  // rolls, and realizedVol() already skips days at or below zero.
+  const closes = spot.map((o) => ({ close: o.value }));
+  const rows: HistoryData["rows"] = spot.map((o, i) => [
+    o.date,
+    o.value,
+    i >= 21 ? realizedVol(closes.slice(i - 21, i + 1)) : null,
+  ]);
+  const vols = rows.flatMap(([date, , rv]) => (rv === null ? [] : [{ date, value: rv }]));
+
+  // Each event is found in the data, never typed in by hand.
+  const callouts: Callout[] = [];
+
+  const y2008 = between("2008-01-01", "2008-12-31");
+  if (y2008.length) {
+    const peak = highest(y2008);
+    const low = lowest(between(peak.date, "2009-06-30"));
+    callouts.push({
+      key: "crash2008",
+      date: peak.date,
+      price: peak.value,
+      values: { peak: peak.value, low: low.value },
+      dates: { peakDate: peak.date, lowDate: low.date },
+    });
+  }
+
+  const y2014 = between("2014-01-01", "2014-12-31");
+  const y2015to16 = between("2015-01-01", "2016-12-31");
+  if (y2014.length && y2015to16.length) {
+    const peak = highest(y2014);
+    const low = lowest(y2015to16);
+    callouts.push({
+      key: "priceWar",
+      date: low.date,
+      price: low.value,
+      values: { peak: peak.value, low: low.value },
+      dates: { peakDate: peak.date, lowDate: low.date },
+    });
+  }
+
+  const spring2020 = between("2020-03-01", "2020-05-31");
+  if (spring2020.length) {
+    const low = lowest(spring2020);
+    callouts.push({
+      key: "belowZero",
+      date: low.date,
+      price: low.value,
+      values: { low: low.value },
+      dates: { lowDate: low.date },
+    });
+  }
+
+  const y2022 = between("2022-01-01", "2022-12-31");
+  if (y2022.length) {
+    const peak = highest(y2022);
+    callouts.push({
+      key: "ukraine",
+      date: peak.date,
+      price: peak.value,
+      values: { peak: peak.value },
+      dates: { peakDate: peak.date },
+    });
+  }
+
+  // 2026: pinned on the day the oil fear gauge (OVX) peaked that year.
+  const ovx2026 = market.ovx.filter((o) => o.date >= "2026-01-01" && o.date <= "2026-12-31");
+  const y2026 = between("2026-01-01", "2026-12-31");
+  if (ovx2026.length && y2026.length) {
+    const ovxPeak = highest(ovx2026);
+    const onDay = [...y2026].reverse().find((o) => o.date <= ovxPeak.date);
+    if (onDay) {
+      callouts.push({
+        key: "iran",
+        date: onDay.date,
+        price: onDay.value,
+        values: { ovx: ovxPeak.value, price: onDay.value, yearHigh: highest(y2026).value },
+        dates: { ovxDate: ovxPeak.date, yearHighDate: highest(y2026).date },
+      });
+    }
+  }
+
+  return {
+    asOf: spot[spot.length - 1].date,
+    rows,
+    callouts,
+    high: highest(spot),
+    low: lowest(spot),
+    rvMax: vols.length ? highest(vols) : { date: spot[0].date, value: 0 },
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Chapters 3 and 4: the futures curve and the swap
+// ---------------------------------------------------------------------------
+
+export type CurveData = {
+  asOf: string;
+  points: { month: string; ticker: string; price: number; weekAgo: number | null }[];
+  /** Front-month and last-month prices, $/bbl */
+  m1: number;
+  m12: number;
+  /** m12 − m1: positive in contango, negative in backwardation */
+  spread: number;
+  /** Annualized roll yield as a decimal */
+  rollYield: number;
+  /** The 12-month strip: the average of the contract months, i.e. the swap price */
+  strip: number;
+  shape: "contango" | "backwardation" | "flat";
+};
+
+export function curveData(market: MarketData): CurveData | null {
+  const { curve } = market;
+  if (curve.length < 2) return null;
+  const prices = curve.map((c) => c.price);
+  const spread = curveSpread(prices);
+  return {
+    asOf: curve[0].date,
+    points: curve.map(({ month, ticker, price, weekAgo }) => ({ month, ticker, price, weekAgo })),
+    m1: prices[0],
+    m12: prices[prices.length - 1],
+    spread,
+    rollYield: rollYield(prices),
+    // Rounded to the cent, the way a swap is quoted, so the math shown on
+    // the page can be re-done by hand from the numbers on screen.
+    strip: Math.round(stripPrice(prices) * 100) / 100,
+    shape: spread > 0 ? "contango" : spread < 0 ? "backwardation" : "flat",
   };
 }

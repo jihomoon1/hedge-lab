@@ -1,31 +1,18 @@
 "use client";
 // Chapter 0. Shows the latest WTI close as a big number that counts up, a
 // one-year sparkline and the opening question; Desk mode adds change and vol.
+// It follows the Plain English / Desk Speak switch like every other chapter.
 
 import { animate, motion, useMotionValue, useReducedMotion, useTransform } from "framer-motion";
 import { useEffect } from "react";
 import { Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { copy, fill, type Mode } from "@/lib/copy";
+import { longDate, shortDate, signedPct, usd } from "@/lib/format";
 import type { HeroData } from "@/lib/market";
-
-const usd = (n: number) =>
-  n.toLocaleString("en-US", { style: "currency", currency: "USD" });
+import { useMode } from "../ModeToggle";
 
 /** Signed dollars, negatives in parentheses: +$0.32 or ($0.81). */
-const usdChange = (n: number) => (n < 0 ? `(${usd(-n)})` : `+${usd(n)}`);
-
-const pct = (n: number, digits: number) =>
-  `${n > 0 ? "+" : n < 0 ? "−" : ""}${(Math.abs(n) * 100).toFixed(digits)}%`;
-
-/** "2026-11-10" → "November 10, 2026" */
-function longDate(isoDate: string, month: "long" | "short" = "long"): string {
-  return new Date(`${isoDate}T00:00:00Z`).toLocaleDateString("en-US", {
-    timeZone: "UTC",
-    year: "numeric",
-    month,
-    day: "numeric",
-  });
-}
+const usdChange = (n: number) => (n < 0 ? usd(n) : `+${usd(n)}`);
 
 /** The big number: counts up from zero once, when the page loads. */
 function CountUp({ value }: { value: number }) {
@@ -61,7 +48,7 @@ function SparkTooltip({ active, payload }: TooltipProps) {
   if (!active || !point) return null;
   return (
     <div className="rounded border border-rule bg-paper px-2.5 py-1.5 text-sm shadow-sm">
-      <div className="text-muted">{longDate(point.date, "short")}</div>
+      <div className="text-muted">{shortDate(point.date)}</div>
       <div className="font-medium text-ink tabular-nums">{usd(point.close)}</div>
     </div>
   );
@@ -107,8 +94,8 @@ function Sparkline({ data, mode }: { data: HeroData; mode: Mode }) {
         </ResponsiveContainer>
       </div>
       <div className="mt-1 flex justify-between text-xs text-muted">
-        <span>{longDate(start, "short")}</span>
-        <span>{longDate(end, "short")}</span>
+        <span>{shortDate(start)}</span>
+        <span>{shortDate(end)}</span>
       </div>
     </figure>
   );
@@ -129,7 +116,7 @@ function DeskStats({ data }: { data: HeroData }) {
         <dd className={`mt-1 tabular-nums ${direction}`}>
           {data.change === null || data.changePct === null
             ? text.dayChangeRolled
-            : `${usdChange(data.change)}  ${pct(data.changePct, 2)}`}
+            : `${usdChange(data.change)}  ${signedPct(data.changePct, 2)}`}
         </dd>
       </div>
       <div>
@@ -142,7 +129,8 @@ function DeskStats({ data }: { data: HeroData }) {
   );
 }
 
-export default function Hero({ data, mode = "plain" }: { data: HeroData | null; mode?: Mode }) {
+export default function Hero({ data }: { data: HeroData | null }) {
+  const mode = useMode();
   if (!data) {
     return (
       <section className="mx-auto flex min-h-svh max-w-2xl flex-col justify-center px-4 py-16 sm:px-8">

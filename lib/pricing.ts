@@ -224,3 +224,47 @@ export function threeWayRevenue(S: number, strikes: ThreeWayStrikes, netPremium:
     netPremium
   );
 }
+
+// ---------------------------------------------------------------------------
+// Dana's business and the futures curve
+// ---------------------------------------------------------------------------
+
+/** Monthly revenue in $ = barrels sold × price per barrel. */
+export function monthlyRevenue(price: number, volume: number): number {
+  return price * volume;
+}
+
+/** Monthly profit in $ = barrels sold × (price − cost per barrel). */
+export function monthlyProfit(price: number, cost: number, volume: number): number {
+  return (price - cost) * volume;
+}
+
+/** Swap price = the plain average of the contract months (the "strip"). */
+export function stripPrice(prices: number[]): number {
+  return prices.reduce((sum, p) => sum + p, 0) / prices.length;
+}
+
+/**
+ * Curve spread = last month − first month, in $/bbl. Positive means contango
+ * (later barrels cost more); negative means backwardation.
+ */
+export function curveSpread(prices: number[]): number {
+  return prices[prices.length - 1] - prices[0];
+}
+
+/**
+ * Annualized roll yield = (M1 ÷ M_last − 1) × 12 ÷ (months between them).
+ * Positive in backwardation: a long position gains as it rolls up the curve.
+ */
+export function rollYield(prices: number[]): number {
+  const monthsApart = prices.length - 1;
+  return (prices[0] / prices[prices.length - 1] - 1) * (12 / monthsApart);
+}
+
+/**
+ * Value in $ of a swap where Dana receives the fixed price and pays the
+ * market price: (K_swap − price) × barrels. Not discounted.
+ */
+export function swapMarkToMarket(swapPrice: number, price: number, barrels: number): number {
+  return (swapPrice - price) * barrels;
+}

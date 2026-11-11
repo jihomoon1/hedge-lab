@@ -3,8 +3,14 @@ import {
   black76Call,
   black76Greeks,
   black76Put,
+  curveSpread,
+  monthlyProfit,
+  monthlyRevenue,
   normCdf,
   realizedVol,
+  rollYield,
+  stripPrice,
+  swapMarkToMarket,
   swapRevenue,
   threeWayNetPremium,
   threeWayRevenue,
@@ -201,5 +207,46 @@ describe("realizedVol", () => {
 
   it("returns null without enough data", () => {
     expect(realizedVol([{ close: 60 }, { close: 61 }])).toBeNull();
+  });
+});
+
+describe("Dana's business", () => {
+  it("revenue is barrels × price", () => {
+    // 10,000 × 86 = 860,000
+    expect(monthlyRevenue(86, 10_000)).toBe(860_000);
+  });
+
+  it("profit is barrels × (price − cost), negative below breakeven", () => {
+    // 10,000 × (86 − 55) = 310,000 and 10,000 × (40 − 55) = −150,000
+    expect(monthlyProfit(86, 55, 10_000)).toBe(310_000);
+    expect(monthlyProfit(40, 55, 10_000)).toBe(-150_000);
+    expect(monthlyProfit(55, 55, 10_000)).toBe(0);
+  });
+});
+
+describe("futures curve", () => {
+  const backwardated = [86, 84, 82, 80, 78, 76, 74, 72, 70, 68, 66, 64];
+  const contango = [...backwardated].reverse();
+
+  it("strip price is the plain average of the months", () => {
+    // (86 + 64) ÷ 2 = 75 for an evenly spaced curve
+    expect(stripPrice(backwardated)).toBeCloseTo(75, 10);
+  });
+
+  it("spread is last month − first month: negative in backwardation", () => {
+    expect(curveSpread(backwardated)).toBe(-22);
+    expect(curveSpread(contango)).toBe(22);
+  });
+
+  it("roll yield is (M1 ÷ M12 − 1) × 12/11", () => {
+    expect(rollYield(backwardated)).toBeCloseTo((86 / 64 - 1) * (12 / 11), 10);
+    expect(rollYield(contango)).toBeLessThan(0);
+  });
+
+  it("swap mark-to-market is (K − price) × barrels for the fixed receiver", () => {
+    // (75 − 80) × 5,000 = −25,000: Dana locked in below the market
+    expect(swapMarkToMarket(75, 80, 5_000)).toBe(-25_000);
+    expect(swapMarkToMarket(75, 60, 5_000)).toBe(75_000);
+    expect(swapMarkToMarket(75, 75, 5_000)).toBe(0);
   });
 });

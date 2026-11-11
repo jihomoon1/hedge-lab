@@ -11,6 +11,7 @@
   --hedge: #0f766e; /* teal: the hedge */
   --gain: #0f766e;
   --loss: #b3261e;
+  --font-num: var(--font-inter);
 }
 
 /* Desk Speak mode: a dark trading terminal. */
@@ -23,6 +24,7 @@
   --hedge: #3ddc84;
   --gain: #3ddc84;
   --loss: #ff5c5c;
+  --font-num: var(--font-jetbrains-mono);
 }
 
 /* Makes the variables above usable as Tailwind classes: bg-paper, text-ink... */
@@ -43,4 +45,66 @@
 body {
   background: var(--paper);
   color: var(--ink);
+}
+
+/* Numbers: sans in Plain mode, monospace in Desk mode, always lined up in columns. */
+.num {
+  font-family: var(--font-num), ui-monospace, monospace;
+  font-variant-numeric: tabular-nums;
+}
+
+/* The mode switch adds this class for a moment so the two themes cross-fade
+   over 300ms instead of snapping. */
+.mode-fade,
+.mode-fade * {
+  transition:
+    background-color 300ms ease,
+    color 300ms ease,
+    border-color 300ms ease,
+    fill 300ms ease,
+    stroke 300ms ease !important;
+}
+
+/* Sliders: a thin track with a large thumb that is easy to drag on a phone. */
+.slider {
+  appearance: none;
+  -webkit-appearance: none;
+  display: block;
+  width: 100%;
+  height: 44px;
+  margin: 0;
+  background: transparent;
+  cursor: pointer;
+}
+.slider::-webkit-slider-runnable-track {
+  height: 4px;
+  border-radius: 2px;
+  background: var(--rule);
+}
+.slider::-moz-range-track {
+  height: 4px;
+  border-radius: 2px;
+  background: var(--rule);
+}
+.slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 30px;
+  height: 30px;
+  margin-top: -13px;
+  border-radius: 50%;
+  border: 3px solid var(--paper);
+  background: var(--crude);
+  box-shadow: 0 0 0 1.5px var(--crude);
+}
+.slider::-moz-range-thumb {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  border: 3px solid var(--paper);
+  background: var(--crude);
+  box-shadow: 0 0 0 1.5px var(--crude);
+}
+.slider:focus-visible {
+  outline: 2px solid var(--crude);
+  outline-offset: 2px;
 }

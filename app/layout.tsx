@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Fraunces, Inter, JetBrains_Mono } from "next/font/google";
+import { MODE_STORAGE_KEY } from "@/lib/copy";
 import "./globals.css";
 
 // The three typefaces from SPEC "Design": serif headings, sans numbers in
@@ -17,13 +18,25 @@ export const metadata: Metadata = {
     "Learn commodity derivatives by following one oil producer through her hedging decisions, priced off real market data.",
 };
 
+// Runs before the page is painted: if this browser last chose Desk Speak,
+// switch the theme straight away so returning readers never see a flash of
+// the paper theme first.
+const restoreMode = `try{if(localStorage.getItem("${MODE_STORAGE_KEY}")==="desk")document.documentElement.dataset.mode="desk"}catch(e){}`;
+
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
     <html
       lang="en"
+      data-mode="plain"
+      // The script above may change data-mode before React loads; this tells
+      // React that the difference is expected.
+      suppressHydrationWarning
       className={`${fraunces.variable} ${inter.variable} ${jetbrainsMono.variable} h-full antialiased`}
     >
-      <body className="min-h-full font-sans">{children}</body>
+      <body className="min-h-full font-sans">
+        <script dangerouslySetInnerHTML={{ __html: restoreMode }} />
+        {children}
+      </body>
     </html>
   );
 }
