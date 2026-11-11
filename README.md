@@ -81,3 +81,4 @@ npm run build   # production build
 Next.js (App Router) and TypeScript, Tailwind CSS, Recharts, Framer Motion, Vitest, and Vercel (hosting, a daily cron job and Blob storage for the data file). The full build spec is in [`SPEC.md`](SPEC.md).
 
 Built by [Jiho Moon](https://www.linkedin.com/in/jihomoonn).
+
