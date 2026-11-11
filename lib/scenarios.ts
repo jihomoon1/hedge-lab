@@ -106,3 +106,15 @@ export function stressTest(
   }
   return { unhedged, hedged: unhedged + payoffs - netPremium };
 }
+
+/**
+ * The totals as the site shows them: each rounded to whole dollars first,
+ * and the difference taken from those rounded totals. That way the three
+ * numbers in a row always add up by hand (hedged − unhedged = difference),
+ * which rounding the raw difference on its own cannot guarantee.
+ */
+export function wholeDollars(result: StressResult): StressResult & { diff: number } {
+  const unhedged = Math.round(result.unhedged);
+  const hedged = Math.round(result.hedged);
+  return { unhedged, hedged, diff: hedged - unhedged };
+}

@@ -18,7 +18,9 @@ const usdChange = (n: number) => (n < 0 ? usd(n) : `+${usd(n)}`);
 /** The big number: counts up from zero once, when the page loads. */
 function CountUp({ value }: { value: number }) {
   const reduceMotion = useReducedMotion();
-  const current = useMotionValue(0);
+  // Starts at the real price, so the page's HTML (what loads before any
+  // script runs, and what search engines read) never says "$0.00".
+  const current = useMotionValue(value);
   const text = useTransform(current, (v) => usd(v));
 
   useEffect(() => {
@@ -26,6 +28,7 @@ function CountUp({ value }: { value: number }) {
       current.set(value);
       return;
     }
+    current.set(0);
     const controls = animate(current, value, { duration: 1.4, ease: [0.16, 1, 0.3, 1] });
     return () => controls.stop();
   }, [current, value, reduceMotion]);

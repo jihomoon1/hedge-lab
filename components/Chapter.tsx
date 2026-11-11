@@ -21,23 +21,36 @@ type Props = {
   extra?: ReactNode;
   /** The chapter's closing line, shown in bold. Left out when a chapter continues in the next section. */
   aha?: string;
+  /** True for a second part of the same chapter: it gets a smaller heading, not a new chapter number. */
+  sub?: boolean;
 };
 
-export default function Chapter({ id, kicker, title, chart, controls, body, extra, aha }: Props) {
+export default function Chapter({
+  id,
+  kicker,
+  title,
+  chart,
+  controls,
+  body,
+  extra,
+  aha,
+  sub,
+}: Props) {
   const mode = useMode();
+  const Heading = sub ? "h3" : "h2";
   return (
     <section id={id} aria-labelledby={`${id}-title`} className="border-t border-rule">
       <div className="mx-auto max-w-7xl px-4 sm:px-8 lg:grid lg:grid-cols-[2fr_3fr] lg:gap-x-12">
         <header className="pt-16 lg:col-start-1 lg:pt-[16vh]">
           <p className="text-sm font-medium tracking-wide text-muted uppercase">{kicker}</p>
-          <h2
+          <Heading
             id={`${id}-title`}
             className={`mt-2 font-serif leading-tight text-balance ${
               mode === "desk" ? "text-2xl sm:text-3xl" : "text-3xl sm:text-4xl"
             }`}
           >
             {title}
-          </h2>
+          </Heading>
         </header>
 
         {/* On desktop this cell spans the full height of the chapter, and the

@@ -264,7 +264,7 @@ export const copy = {
       volSeries: "30-day realized vol",
       volGapNote: "No vol shown: log returns undefined when price is below zero.",
       footnote: "As of {date}. Daily WTI spot price at Cushing, Oklahoma. Source: FRED series DCOILWTICO.",
-      aha: "Price risk is not hypothetical; it has bankrupted producers.",
+      aha: "Price risk is not hypothetical: oil has halved within a year more than once.",
     },
     desk: {
       kicker: "02 · Price history",
@@ -283,7 +283,7 @@ export const copy = {
       volGapNote: "No vol shown: log returns undefined when price is below zero.",
       footnote:
         "As of {date}. FRED DCOILWTICO (EIA Cushing spot). RV = √252 · stdev of daily log returns over 21 trading days; any window containing a price at or below zero is left blank.",
-      aha: "Price risk is not hypothetical; it has bankrupted producers.",
+      aha: "Price risk is not hypothetical: oil has halved within a year more than once.",
     },
     /** The five pinned events. Numbers and dates are filled in from the data. */
     callouts: {
@@ -300,11 +300,11 @@ export const copy = {
       priceWar: {
         plain: {
           title: "2014–16: OPEC price war",
-          text: "From {peak} in {peakDateMonth} to {low} on {lowDate}, as OPEC kept pumping into a glut.",
+          text: "From {peak} in {peakDateMonth}, oil had halved by {halfDate}, and it reached {low} on {lowDate}, as OPEC kept pumping into a glut.",
         },
         desk: {
           title: "2014–16 OPEC price war",
-          text: "{peak} ({peakDate}) to {low} ({lowDate}).",
+          text: "{peak} ({peakDate}) to {low} ({lowDate}); down 50% by {halfDate}.",
         },
       },
       belowZero: {
@@ -472,7 +472,7 @@ export const copy = {
       yLabel: "What Dana receives ($ per barrel)",
       futuresMark: "Futures {F}",
       footnote:
-        "As of {date}. Priced with the Black-76 model: {contract} futures at {F}; expected jumpiness (OVX) {ovx} on {ovxDate}; interest rate {rate} on {rateDate}. End-of-day data, not live.",
+        "Futures prices as of {date}. Priced with the Black-76 model: {contract} futures at {F}; expected jumpiness (OVX) {ovx} as of {ovxDate}; interest rate {rate} as of {rateDate}. End-of-day data, not live.",
       monthsOne: "1 month",
       monthsMany: "{months} months",
     },
@@ -482,7 +482,7 @@ export const copy = {
       yLabel: "Revenue, $/bbl",
       futuresMark: "F {F}",
       footnote:
-        "As of {date}. Black-76: F = {contract} settle {F}; σ = OVX {ovx} ({ovxDate}) ÷ 100; r = DTB3 {rate} ({rateDate}); T = {T}y. End-of-day.",
+        "Futures as of {date}. Black-76: F = {contract} settle {F}; σ = OVX {ovx} (as of {ovxDate}) ÷ 100; r = DTB3 {rate} (as of {rateDate}); T = {T}y. End-of-day.",
       monthsOne: "1M",
       monthsMany: "{months}M",
     },
@@ -497,7 +497,8 @@ export const copy = {
         "The swap gave away the upside. [[put|Price insurance]] doesn't. Dana picks [[strike|a floor price]] and pays [[premium|a fee]] up front. If oil falls below the floor, the insurance makes up the difference. If oil rises, she keeps the gain.",
         "Move the floor, and how long it has to last. A higher floor or a longer policy costs more. So does fear: the fee rises with [[impliedVol]].",
       ],
-      chartTitle: "For {premium} a barrel, Dana's price can't fall below {floor}.",
+      chartTitle:
+        "After paying {premium} a barrel for the insurance, Dana's price can't fall below {floor}: her {strike} floor minus the fee.",
       strikeLabel: "Floor price",
       monthsLabel: "How long the insurance lasts",
       premiumLabel: "The insurance costs",
@@ -514,7 +515,7 @@ export const copy = {
         "Black-76 on the {contract} contract: F = {F}, σ = {ovx} ([[impliedVol|IV from OVX]]), r = {rate}, T = {T}y. [[premium|Premium]] {basePremium}/bbl.",
         "Dana keeps the upside above K and pays [[theta]] for it. Bump vol 5 points to see her [[vega]] in dollars.",
       ],
-      chartTitle: "Long {strike} put: revenue floor at {floor} (K − premium).",
+      chartTitle: "Long {strike} put: revenue floor at {floor} net of premium (K {strike} − {premium}).",
       strikeLabel: "Strike, K",
       monthsLabel: "Expiry",
       premiumLabel: "Premium",
@@ -547,9 +548,10 @@ export const copy = {
         "Slide the ceiling, or press **Make it free** to find the ceiling that pays for the floor exactly.",
       ],
       chartFree: "Dana's price stays between {floor} and {cap}, and the hedge costs her nothing.",
-      chartCost: "Dana's price stays between {floor} and {cap}, for {net} a barrel.",
+      chartCost:
+        "After paying {net} a barrel for the insurance, Dana's price stays between {floor} and {cap}: her {strike} floor and {call} ceiling, minus that cost.",
       chartCredit:
-        "Dana's price stays between {floor} and {cap}, and she is paid {net} a barrel up front.",
+        "Dana's price stays between {floor} and {cap}: her {strike} floor and {call} ceiling, plus the {net} a barrel she is paid up front.",
       keptPut: "Floor from chapter 5: {strike} for {monthsText}, costing {putPremium} a barrel.",
       callLabel: "Ceiling price",
       callIncome: "Selling the ceiling pays",
@@ -573,8 +575,10 @@ export const copy = {
         "The solver bisects the call strike between F and 3F until |Put − Call| is under $0.001.",
       ],
       chartFree: "Costless collar {strike}/{call}: revenue between {floor} and {cap}.",
-      chartCost: "Collar {strike}/{call}: revenue between {floor} and {cap}, net debit {net}.",
-      chartCredit: "Collar {strike}/{call}: revenue between {floor} and {cap}, net credit {net}.",
+      chartCost:
+        "Collar {strike}/{call}: revenue between {floor} and {cap} net of premium (strikes − {net} debit).",
+      chartCredit:
+        "Collar {strike}/{call}: revenue between {floor} and {cap} net of premium (strikes + {net} credit).",
       keptPut: "Long put from 05: K = {strike}, {monthsText}, premium {putPremium}.",
       callLabel: "Call strike",
       callIncome: "Call premium received",
@@ -689,7 +693,7 @@ export const copy = {
       gapValue: "{spread} points",
       rank: "Days in the last 3 years with a gap this small or smaller",
       footnote:
-        "As of {date}. Expected swings: the Cboe OVX index. Actual swings: 30-day moves of the nearest oil futures contract. Ranked against {days} trading days since {from}. End-of-day data, not live.",
+        "As of {date}, the latest close of the Cboe OVX index (expected swings). Actual swings: 30-day moves of the nearest oil futures contract, through the same day. Ranked against {days} trading days since {from}. End-of-day data, not live.",
       aha: "Traders don't just ask \"what will oil do?\" They ask \"is the market charging too much to insure against it?\"",
     },
     desk: {
@@ -708,7 +712,7 @@ export const copy = {
       gapSeries: "IV − RV",
       yLabel: "Vol pts, annualized",
       footnote:
-        "As of {date}. IV: FRED OVXCLS. RV: √252 · stdev of daily log returns of CL=F over 21 trading days, roll days skipped. {days} trading days since {from}. End-of-day.",
+        "As of {date}, the latest OVX close (FRED OVXCLS). RV: √252 · stdev of daily log returns of CL=F over 21 trading days ending the same day, roll days skipped. {days} trading days since {from}. End-of-day.",
       aha: "Traders don't just ask \"what will oil do?\" They ask \"is the market charging too much to insure against it?\"",
     },
     desk_stats: {
@@ -767,9 +771,9 @@ export const copy = {
       yLabel: "Dana's revenue for the month, after a twelfth of the up-front cost",
       todayMark: "Today {today}",
       footnote:
-        "As of {date}. Dana sells {volume} barrels a month. Options priced with the Black-76 model, one for each of the next 12 months, from that month's futures price; expected jumpiness (OVX) {ovx} on {ovxDate}; interest rate {rate} on {rateDate}. End-of-day data, not live.",
+        "Futures prices as of {date}. Dana sells {volume} barrels a month. Options priced with the Black-76 model, one for each of the next 12 months, from that month's futures price; expected jumpiness (OVX) {ovx} as of {ovxDate}; interest rate {rate} as of {rateDate}. End-of-day data, not live.",
 
-      stressKicker: "Chapter 9 · Stress test",
+      stressKicker: "The hedge desk · Stress test",
       stressTitle: "Then run it through four real oil years.",
       stressBody: [
         "Each pair of bars replays 12 real months of oil prices, resized so the first month starts at today's price of {today}. Every month is settled at that month's average price, which is how real oil swaps work.",
@@ -796,7 +800,7 @@ export const copy = {
       resultFlat: "This hedge changes nothing in any of the four.",
       resultNone: "Add a leg to see how a hedge changes these four years.",
       stressFootnote:
-        "Monthly averages of the U.S. crude spot price (FRED DCOILWTICO, through {spotDate}). Each path is rescaled by percent change so its first month equals today's front-month price, {today} on {date}.",
+        "Monthly averages of the U.S. crude spot price (FRED DCOILWTICO, as of {spotDate}). Each path is rescaled by percent change so its first month equals the latest front-month futures close, {today} on {frontDate}.",
       shareIntro: "This hedge is saved in the page address, so a link reopens it exactly.",
       copyLink: "Copy link",
       copied: "Copied",
@@ -844,9 +848,9 @@ export const copy = {
       yLabel: "Revenue per month, $, net of premium ÷ 12",
       todayMark: "M1 {today}",
       footnote:
-        "As of {date}. {volume} bbl/month. Black-76 per contract month, F = that month's settle, T = 1/12 to 12/12; σ = OVX {ovx} ({ovxDate}) ÷ 100; r = DTB3 {rate} ({rateDate}). End-of-day.",
+        "Futures as of {date}. {volume} bbl/month. Black-76 per contract month, F = that month's settle, T = 1/12 to 12/12; σ = OVX {ovx} (as of {ovxDate}) ÷ 100; r = DTB3 {rate} (as of {rateDate}). End-of-day.",
 
-      stressKicker: "09 · Stress test",
+      stressKicker: "Hedge desk · Stress test",
       stressTitle: "Stress the structure on four historical 12M paths.",
       stressBody: [
         "Monthly averages of WTI spot for each window, rescaled by percent change so month 0 equals today's M1, {today}. Each month settles against its own average.",
@@ -873,7 +877,7 @@ export const copy = {
       resultFlat: "This hedge changes nothing in any of the four.",
       resultNone: "Add a leg to see how a hedge changes these four years.",
       stressFootnote:
-        "FRED DCOILWTICO monthly averages through {spotDate}, rescaled so month 0 = M1 settle {today} ({date}).",
+        "FRED DCOILWTICO monthly averages as of {spotDate}, rescaled so month 0 = M1 settle {today} ({frontDate}).",
       shareIntro: "The structure is encoded in the URL query string.",
       copyLink: "Copy link",
       copied: "Copied",
@@ -912,9 +916,9 @@ export const copy = {
     plainHeading: "Plain English",
     deskHeading: "Desk Speak",
     sourcesTitle: "Data and sources",
-    asOf: "Futures prices as of {date}. All data is end-of-day and refreshes once each weekday evening. It is not live.",
+    asOf: "All data is end-of-day and refreshes once each weekday evening. It is not live. The feeds publish on different schedules, so each one's own latest date is shown next to it.",
     noData: "Market data has not loaded yet.",
-    latest: "latest {date}",
+    latest: "as of {date}",
     sources: [
       {
         name: "Yahoo Finance",

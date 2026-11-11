@@ -65,7 +65,7 @@ Ten chapters on one long scrolling page. On desktop the chart stays pinned on th
 - **Widget:** WTI daily price since 2007 with a Play button that animates the line forward. Five pinned callouts: the 2008 spike and crash, the 2014–16 OPEC price war, April 2020 when front-month WTI went below zero, the 2022 spike after Russia invaded Ukraine, and the 2026 vol spike during the U.S.-Israeli strikes on Iran.
 - **Data:** FRED `DCOILWTICO`.
 - **Desk adds:** a second axis with 30-day realized vol, so the reader sees vol cluster in crises.
-- **Aha:** price risk is not hypothetical; it has bankrupted producers.
+- **Aha:** price risk is not hypothetical: oil has halved within a year more than once.
 
 ### 3. The futures curve
 

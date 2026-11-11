@@ -1,7 +1,8 @@
 "use client";
 // Chapter 9. The hedge desk: stack up to six legs, see the combined payoff
 // and net premium, stress the hedge on four real oil years, and share it as
-// a link that reopens the exact same hedge.
+// a link that reopens the exact same hedge. The stress test is the second
+// part of this chapter (its own section, #stress), not a chapter of its own.
 
 import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { copy, fill } from "@/lib/copy";
@@ -20,13 +21,12 @@ import {
   legStripPremium,
   structureGreeks,
   structurePayoff,
-  structurePremium,
   zeroCostStripCallStrike,
   type Leg,
   type LegType,
   type StripInputs,
 } from "@/lib/pricing";
-import { stressTest, type ScenarioKey } from "@/lib/scenarios";
+import { stressTest, wholeDollars, type ScenarioKey } from "@/lib/scenarios";
 import { decodeLegs, encodeLegs, LEGS_PARAM, MAX_LEGS, roundStrike } from "@/lib/share";
 import Chapter from "../Chapter";
 import ChartFrame from "../charts/ChartFrame";
@@ -144,7 +144,10 @@ export default function Sandbox({ data }: { data: SandboxData }) {
   }
 
   // The numbers ---------------------------------------------------------------
-  const netPremium = structurePremium(legs, strip);
+  // Each leg's premium is rounded to the dollar first and the net is their
+  // sum, so the per-leg costs on screen always add up to the net shown.
+  const legPremiums = legs.map((leg) => Math.round(legStripPremium(leg, strip)));
+  const netPremium = legPremiums.reduce((sum, premium) => sum + premium, 0);
   const premiumPerMonth = netPremium / strip.forwards.length;
   /** Dana's revenue in $ for one month that settles at S, with and without the hedge. */
   const unhedgedAt = (S: number) => S * DANA.volume;
@@ -159,6 +162,7 @@ export default function Sandbox({ data }: { data: SandboxData }) {
     rate: `${data.tbill.value.toFixed(2)}%`,
     rateDate: longDate(data.tbill.date),
     spotDate: longDate(data.spotAsOf),
+    frontDate: longDate(data.frontAsOf),
     low: priceShort(EXAMPLE_LOW),
     hedged: dollars(hedgedAt(EXAMPLE_LOW)),
     unhedged: dollars(unhedgedAt(EXAMPLE_LOW)),
@@ -216,8 +220,7 @@ export default function Sandbox({ data }: { data: SandboxData }) {
       strike: mode === "desk" ? strikeText(leg.strike) : priceShort(leg.strike),
       volume: mode === "desk" ? compactVolume(leg.volume) : leg.volume.toLocaleString("en-US"),
     });
-  const premiumLine = (leg: Leg) => {
-    const total = legStripPremium(leg, strip);
+  const premiumLine = (leg: Leg, total: number) => {
     if (Math.abs(total) < NOTHING) return text.legFree;
     const perBarrel = Math.abs(total) / (leg.volume * strip.forwards.length);
     return fill(total > 0 ? text.legCost : text.legIncome, {
@@ -271,7 +274,7 @@ export default function Sandbox({ data }: { data: SandboxData }) {
               key={i}
               leg={leg}
               summary={describe(leg)}
-              premiumLine={premiumLine(leg)}
+              premiumLine={premiumLine(leg, legPremiums[i])}
               labels={{
                 type: text.typeLabel,
                 strike: text.strikeLabel,
@@ -341,7 +344,11 @@ export default function Sandbox({ data }: { data: SandboxData }) {
   };
   const monthLabel = (month: string) => `${monthShort(month)} ${month.slice(0, 4)}`;
   const results = data.scenarios.map((scenario) => {
-    const { unhedged, hedged } = stressTest(scenario.scaled, legs, DANA.volume, netPremium);
+    // Whole dollars, with the difference taken from the rounded totals, so
+    // each row of the table adds up by hand.
+    const { unhedged, hedged, diff } = wholeDollars(
+      stressTest(scenario.scaled, legs, DANA.volume, netPremium),
+    );
     return {
       key: scenario.key,
       name: scenarioNames[scenario.key],
@@ -354,7 +361,7 @@ export default function Sandbox({ data }: { data: SandboxData }) {
       year: scenario.months[0].slice(0, 4),
       unhedged,
       hedged,
-      diff: hedged - unhedged,
+      diff,
     };
   });
 
@@ -412,40 +419,40 @@ export default function Sandbox({ data }: { data: SandboxData }) {
         {resultSentence}
       </p>
       <div className="overflow-x-auto">
-        <table className="w-full text-sm">
+        <table className="w-full text-xs sm:text-sm">
           <caption className="pb-1 text-left text-sm font-medium text-muted">
             {text.tableTitle}
           </caption>
           <thead>
             <tr className="border-b border-rule text-muted">
-              <th className="hidden py-1.5 pr-2 text-left font-normal sm:table-cell">
+              <th scope="col" className="py-1.5 pr-1 text-left sm:pr-2 font-normal">
                 {text.tableScenario}
               </th>
-              <th className="py-1.5 text-right font-normal sm:pl-2">{text.tableUnhedged}</th>
-              <th className="py-1.5 pl-2 text-right font-normal">{text.tableHedged}</th>
-              <th className="py-1.5 pl-2 text-right font-normal">{text.tableDiff}</th>
+              <th scope="col" className="py-1.5 pl-1.5 text-right sm:pl-2 font-normal">
+                {text.tableUnhedged}
+              </th>
+              <th scope="col" className="py-1.5 pl-1.5 text-right sm:pl-2 font-normal">
+                {text.tableHedged}
+              </th>
+              <th scope="col" className="py-1.5 pl-1.5 text-right sm:pl-2 font-normal">
+                {text.tableDiff}
+              </th>
             </tr>
           </thead>
-          {results.map((result) => (
-            <tbody key={result.key}>
-              {/* On a phone the replay's name gets its own line above its numbers. */}
-              <tr className="sm:hidden">
-                <th colSpan={3} scope="rowgroup" className="pt-2 text-left font-normal">
-                  {result.name}
-                  <span className="ml-2 text-xs text-muted">{result.range}</span>
-                </th>
-              </tr>
-              <tr className="border-b border-rule align-top">
-                <th className="hidden py-1.5 pr-2 text-left font-normal sm:table-cell">
+          <tbody>
+            {/* One row per replay, with its name in the first cell. */}
+            {results.map((result) => (
+              <tr key={result.key} className="border-b border-rule align-top">
+                <th scope="row" className="py-1.5 pr-1 text-left sm:pr-2 font-normal">
                   {result.name}
                   <span className="block text-xs text-muted">{result.range}</span>
                 </th>
-                <td className="num py-1.5 text-right sm:pl-2">{dollars(result.unhedged)}</td>
-                <td className="num py-1.5 pl-2 text-right font-semibold">
+                <td className="num py-1.5 pl-1.5 text-right sm:pl-2">{dollars(result.unhedged)}</td>
+                <td className="num py-1.5 pl-1.5 text-right sm:pl-2 font-semibold">
                   {dollars(result.hedged)}
                 </td>
                 <td
-                  className={`num py-1.5 pl-2 text-right ${
+                  className={`num py-1.5 pl-1.5 text-right sm:pl-2 ${
                     result.diff >= NOTHING
                       ? "text-gain"
                       : result.diff <= -NOTHING
@@ -456,8 +463,8 @@ export default function Sandbox({ data }: { data: SandboxData }) {
                   {dollars(result.diff)}
                 </td>
               </tr>
-            </tbody>
-          ))}
+            ))}
+          </tbody>
         </table>
       </div>
       {mode === "desk" && (
@@ -504,6 +511,7 @@ export default function Sandbox({ data }: { data: SandboxData }) {
       />
       <Chapter
         id="stress"
+        sub
         kicker={text.stressKicker}
         title={text.stressTitle}
         chart={stressChart}

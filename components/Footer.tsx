@@ -47,9 +47,7 @@ export default function Footer({ dates }: { dates: FooterDates }) {
           {text.sourcesTitle}
         </h2>
         <p className="mt-2 text-sm text-muted">
-          {dates
-            ? fill(text.asOf, { date: longDate(dates.futures) })
-            : text.noData}
+          {dates ? text.asOf : text.noData}
         </p>
         <ul className="mt-5 space-y-3 text-sm">
           {text.sources.map((source) => (

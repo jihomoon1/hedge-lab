@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { Leg } from "./pricing";
-import { monthlyAverages, rescalePath, scenarioPaths, stressTest } from "./scenarios";
+import { monthlyAverages, rescalePath, scenarioPaths, stressTest, wholeDollars } from "./scenarios";
 
 describe("rescalePath", () => {
   it("makes the first price equal today's price and keeps every percent change", () => {
@@ -102,5 +102,21 @@ describe("stressTest (monthly-average settlement)", () => {
     const put: Leg[] = [{ type: "longPut", strike: 70, volume: 10_000 }];
     // Unhedged −20 × 10,000 = −200,000; the put pays (70 − −20) × 10,000 = 900,000.
     expect(stressTest([-20], put, 10_000, 0)).toEqual({ unhedged: -200_000, hedged: 700_000 });
+  });
+});
+
+describe("wholeDollars (totals that add up on screen)", () => {
+  it("rounds each total first, so the difference equals hedged minus unhedged as shown", () => {
+    // The 2020 replay on the live site: shown as $7,041,409 and $8,716,443.
+    const shown = wholeDollars({ unhedged: 7_041_408.6, hedged: 8_716_443.4 });
+    expect(shown.unhedged).toBe(7_041_409);
+    expect(shown.hedged).toBe(8_716_443);
+    // 8,716,443 − 7,041,409 = 1,675,034 (not 1,675,035, the rounded raw gap of 1,675,034.8)
+    expect(shown.diff).toBe(1_675_034);
+    expect(shown.diff).toBe(shown.hedged - shown.unhedged);
+  });
+
+  it("gives a difference of exactly zero when both totals show the same dollars", () => {
+    expect(wholeDollars({ unhedged: 100.4, hedged: 99.6 }).diff).toBe(0);
   });
 });

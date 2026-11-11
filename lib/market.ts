@@ -245,12 +245,15 @@ export function historyData(market: MarketData): HistoryData | null {
   if (y2014.length && y2015to16.length) {
     const peak = highest(y2014);
     const low = lowest(y2015to16);
+    // The first day oil closed at or below half its 2014 peak. This is what
+    // backs the chapter's closing line ("halved within a year").
+    const half = between(peak.date, low.date).find((o) => o.value <= peak.value / 2) ?? low;
     callouts.push({
       key: "priceWar",
       date: low.date,
       price: low.value,
-      values: { peak: peak.value, low: low.value },
-      dates: { peakDate: peak.date, lowDate: low.date },
+      values: { peak: peak.value, low: low.value, half: half.value },
+      dates: { peakDate: peak.date, lowDate: low.date, halfDate: half.date },
     });
   }
 
@@ -445,6 +448,8 @@ export function volData(market: MarketData): VolData | null {
 export type SandboxData = OptionData & {
   /** Today's front-month price, $/bbl: where every stress path starts */
   front: number;
+  /** Date of that front-month close */
+  frontAsOf: string;
   /** The 12-month strip (swap price), rounded to the cent */
   strip: number;
   /** Date of the latest spot price the scenarios were built from */
@@ -458,12 +463,14 @@ export function sandboxData(market: MarketData): SandboxData | null {
   const curve = curveData(market);
   // The sandbox prices a 12-month strip, so it needs all 12 contract months.
   if (!options || !curve || options.months.length !== 12 || market.front.length === 0) return null;
-  const front = market.front[market.front.length - 1].close;
+  const latest = market.front[market.front.length - 1];
+  const front = latest.close;
   const scenarios = scenarioPaths(market.wtiSpot, front);
   if (scenarios.length === 0) return null;
   return {
     ...options,
     front,
+    frontAsOf: latest.date,
     strip: curve.strip,
     spotAsOf: market.wtiSpot[market.wtiSpot.length - 1].date,
     scenarios,
